@@ -97,7 +97,7 @@ async function processWithClaude(results: ValyuResult[]): Promise<Topic[]> {
 
   const topics: Topic[] = [];
 
-  for (const result of results.slice(0, 10)) {
+  for (const result of results.slice(0, 5)) {
     try {
       // Convert content to string if needed
       const contentStr = typeof result.content === 'string' 
@@ -356,7 +356,11 @@ function getMockTopics(): Topic[] {
   return mixed;
 }
 
-export async function GET() {
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const count = parseInt(searchParams.get("count") || "3", 10);
+  const offset = parseInt(searchParams.get("offset") || "0", 10);
+  
   let topics: Topic[];
   let mode: "live" | "demo" = "demo";
 
@@ -374,15 +378,20 @@ export async function GET() {
       topics = [];
     }
 
-    // Mix in some fun topics for variety (after position 4)
-    if (topics.length > 4) {
-      const funTopics = getRandomTopics().slice(0, 2);
-      funTopics.forEach((topic, i) => {
-        topics.splice(5 + i * 2, 0, topic);
+    // Mix in some fun topics for variety
+    const funTopics = getRandomTopics();
+    if (topics.length > 0) {
+      // Insert fun topics every 3rd position
+      funTopics.slice(0, 2).forEach((topic, i) => {
+        const insertAt = Math.min(2 + i * 3, topics.length);
+        topics.splice(insertAt, 0, topic);
       });
+    } else {
+      // If no API topics, use fun topics
+      topics = funTopics;
     }
 
-    // Fallback to mock if API returns empty
+    // Fallback to mock if still empty
     if (topics.length === 0) {
       console.log("No topics from APIs, falling back to mock");
       topics = getMockTopics();
@@ -396,5 +405,9 @@ export async function GET() {
     topics = getMockTopics();
   }
 
-  return NextResponse.json({ topics, mode });
+  // Return only the requested slice
+  const slicedTopics = topics.slice(offset, offset + count);
+  const hasMore = offset + count < topics.length;
+
+  return NextResponse.json({ topics: slicedTopics, mode, hasMore });
 }

@@ -12,6 +12,7 @@ interface TopicFeedState {
   currentIndex: number;
   depth: ViewDepth;
   isLoading: boolean;
+  isLoadingMore: boolean;
   error: string | null;
   expandedContent: Record<string, string>;
   detailContent: Record<string, string>;
@@ -24,6 +25,8 @@ interface TopicFeedState {
   conceptCache: Record<string, string>;
   // API mode indicator
   mode: "live" | "demo";
+  // Infinite scroll
+  hasMore: boolean;
 }
 
 export function useTopicFeed({ preloadCount = 2 }: UseTopicFeedOptions = {}) {
@@ -32,6 +35,7 @@ export function useTopicFeed({ preloadCount = 2 }: UseTopicFeedOptions = {}) {
     currentIndex: 0,
     depth: "summary",
     isLoading: true,
+    isLoadingMore: false,
     error: null,
     expandedContent: {},
     detailContent: {},
@@ -41,17 +45,18 @@ export function useTopicFeed({ preloadCount = 2 }: UseTopicFeedOptions = {}) {
     isExploringConcept: false,
     conceptCache: {},
     mode: "demo",
+    hasMore: true,
   });
 
   const preloadedRef = useRef<Set<string>>(new Set());
   const conceptPreloadRef = useRef<Set<string>>(new Set());
 
-  // Fetch initial topics (just 1-3 at a time)
+  // Fetch initial topics (3 at a time)
   const fetchTopics = useCallback(async () => {
     setState((prev) => ({ ...prev, isLoading: true, error: null }));
 
     try {
-      const response = await fetch("/api/topics");
+      const response = await fetch("/api/topics?count=3");
       if (!response.ok) throw new Error("Failed to fetch topics");
       
       const data = await response.json();
@@ -60,6 +65,7 @@ export function useTopicFeed({ preloadCount = 2 }: UseTopicFeedOptions = {}) {
         ...prev,
         topics: data.topics,
         mode: data.mode || "demo",
+        hasMore: data.hasMore !== false,
         isLoading: false,
       }));
     } catch (error) {
@@ -70,6 +76,30 @@ export function useTopicFeed({ preloadCount = 2 }: UseTopicFeedOptions = {}) {
       }));
     }
   }, []);
+
+  // Load more topics for infinite scroll
+  const loadMoreTopics = useCallback(async () => {
+    if (state.isLoadingMore || !state.hasMore) return;
+
+    setState((prev) => ({ ...prev, isLoadingMore: true }));
+
+    try {
+      const response = await fetch(`/api/topics?count=3&offset=${state.topics.length}`);
+      if (!response.ok) throw new Error("Failed to fetch more topics");
+      
+      const data = await response.json();
+      
+      setState((prev) => ({
+        ...prev,
+        topics: [...prev.topics, ...data.topics],
+        hasMore: data.hasMore !== false,
+        isLoadingMore: false,
+      }));
+    } catch (error) {
+      console.error("Error loading more topics:", error);
+      setState((prev) => ({ ...prev, isLoadingMore: false }));
+    }
+  }, [state.isLoadingMore, state.hasMore, state.topics.length]);
 
   // Build expand URL with topic data
   const buildExpandUrl = useCallback((topic: Topic) => {
@@ -217,6 +247,10 @@ export function useTopicFeed({ preloadCount = 2 }: UseTopicFeedOptions = {}) {
         case "down":
           // Next topic
           if (currentIndex < topics.length - 1) {
+            // Load more when reaching 2nd to last topic
+            if (currentIndex >= topics.length - 2) {
+              loadMoreTopics();
+            }
             return {
               ...prev,
               currentIndex: currentIndex + 1,
@@ -264,7 +298,7 @@ export function useTopicFeed({ preloadCount = 2 }: UseTopicFeedOptions = {}) {
           return prev;
       }
     });
-  }, [state.currentConcept, clearConceptExploration]);
+  }, [state.currentConcept, clearConceptExploration, loadMoreTopics]);
 
   // Expand topic content
   const expandTopic = useCallback(async (topicId: string) => {

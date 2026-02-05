@@ -42,7 +42,7 @@ async function searchForContext(question: string): Promise<string> {
 
 export async function POST(request: NextRequest) {
   const body = await request.json();
-  const { question, topicContext } = body;
+  const { question, topicContext, selectedText } = body;
 
   if (!question) {
     return NextResponse.json({ error: "Missing question" }, { status: 400 });
@@ -53,8 +53,9 @@ export async function POST(request: NextRequest) {
   if (hasAnthropicKey) {
     // Search for additional context if needed
     let searchContext = "";
+    const searchQuery = selectedText ? `${selectedText} ${question}` : question;
     if (hasValyuKey) {
-      searchContext = await searchForContext(question);
+      searchContext = await searchForContext(searchQuery);
     }
 
     try {
@@ -67,6 +68,7 @@ export async function POST(request: NextRequest) {
             content: `Answer this question based on the provided context.
 
 Question: ${question}
+${selectedText ? `\nThe user is asking specifically about this text: "${selectedText}"` : ""}
 
 ${topicContext ? `Topic context:\n${topicContext}` : ""}
 ${searchContext ? `Additional research:\n${searchContext}` : ""}
@@ -89,7 +91,7 @@ Provide a clear, direct answer. If information is uncertain, acknowledge it. Be 
   // Fallback
   if (!answer) {
     await new Promise((resolve) => setTimeout(resolve, 800));
-    answer = `Great question! To provide accurate answers to "${question}", please add your API keys to \`.env.local\`:
+    answer = `Great question! To provide accurate answers to "${question}"${selectedText ? ` about "${selectedText}"` : ""}, please add your API keys to \`.env.local\`:
 
 \`\`\`
 ANTHROPIC_API_KEY=your_key
