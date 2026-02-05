@@ -89,6 +89,7 @@ export function useTopicFeed({ preloadCount = 2 }: UseTopicFeedOptions = {}) {
   const preloadedRef = useRef<Set<string>>(new Set());
   const conceptPreloadRef = useRef<Set<string>>(new Set());
   const initializedRef = useRef(false);
+  const seenUrlsRef = useRef<Set<string>>(new Set()); // Track seen URLs to avoid repeats
 
   // Fetch initial topics (3 at a time) or restore from localStorage
   const fetchTopics = useCallback(async (forceRefresh = false) => {
@@ -118,6 +119,11 @@ export function useTopicFeed({ preloadCount = 2 }: UseTopicFeedOptions = {}) {
       
       const data = await response.json();
       
+      // Track seen URLs
+      data.topics.forEach((t: Topic) => {
+        if (t.sourceUrl) seenUrlsRef.current.add(t.sourceUrl);
+      });
+      
       setState((prev) => ({
         ...prev,
         topics: data.topics,
@@ -145,8 +151,12 @@ export function useTopicFeed({ preloadCount = 2 }: UseTopicFeedOptions = {}) {
     setState((prev) => ({ ...prev, isLoadingMore: true }));
 
     try {
+      // Pass seen URLs to avoid repeats
+      const excludeUrls = Array.from(seenUrlsRef.current).slice(-50); // Last 50 URLs
+      const excludeParam = excludeUrls.length > 0 ? `&excludeUrls=${encodeURIComponent(excludeUrls.join(","))}` : "";
+      
       // Fetch 5 more topics
-      const response = await fetch("/api/topics?count=5");
+      const response = await fetch(`/api/topics?count=5${excludeParam}`);
       if (!response.ok) throw new Error("Failed to fetch more topics");
       
       const data = await response.json();
@@ -160,7 +170,15 @@ export function useTopicFeed({ preloadCount = 2 }: UseTopicFeedOptions = {}) {
         return true;
       });
       
+      // Track new URLs
+      newTopics.forEach((t: Topic) => {
+        if (t.sourceUrl) seenUrlsRef.current.add(t.sourceUrl);
+      });
+      
       console.log(`Adding ${newTopics.length} new topics (filtered from ${data.topics.length})`);
+      if (data.aiCount > 0) {
+        console.log(`Includes ${data.aiCount} AI-generated thought(s)`);
+      }
       
       setState((prev) => {
         const updatedTopics = [...prev.topics, ...newTopics];

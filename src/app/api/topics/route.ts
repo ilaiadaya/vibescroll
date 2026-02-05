@@ -69,40 +69,72 @@ async function fetchFromNewsAPI(): Promise<ValyuResult[]> {
   }
 }
 
-// Fetch trending topics from Valyu using official SDK
-async function fetchFromValyu(): Promise<ValyuResult[]> {
-  if (!valyu) return [];
+// Content categories with high-content sources
+const CONTENT_CATEGORIES = [
+  // High volume - lots of content
+  { category: "science", queries: ["latest scientific research papers", "science breakthrough discovery today", "new study published findings"] },
+  { category: "tech", queries: ["technology news today", "AI artificial intelligence latest", "startup funding news tech"] },
+  { category: "finance", queries: ["stock market news today", "cryptocurrency bitcoin ethereum news", "economic policy federal reserve"] },
+  { category: "politics", queries: ["political news today", "government policy announcement", "election news update"] },
+  // Medium volume
+  { category: "health", queries: ["health medical news today", "new treatment drug FDA", "mental health wellness research"] },
+  { category: "sports", queries: ["sports news today scores", "NBA NFL MLB latest", "athlete transfer trade news"] },
+  { category: "entertainment", queries: ["entertainment celebrity news", "movie film release news", "music artist album release"] },
+  { category: "business", queries: ["business news companies", "corporate earnings report", "merger acquisition deal"] },
+  // Lower volume but interesting
+  { category: "space", queries: ["space NASA astronomy news", "rocket launch satellite", "mars moon exploration"] },
+  { category: "environment", queries: ["climate change environment news", "renewable energy solar wind", "wildlife conservation nature"] },
+  { category: "culture", queries: ["viral trending social media", "internet culture memes", "lifestyle trend society"] },
+];
 
-  // More specific queries for real trending content
-  const queries = [
-    "trending news today 2026",
-    "breaking news latest headlines",
-    "viral story this week",
-    "top news stories today",
-  ];
+// Fetch trending topics from Valyu using official SDK
+async function fetchFromValyu(excludeUrls: string[] = []): Promise<{ results: ValyuResult[], categoryStats: Record<string, number> }> {
+  if (!valyu) return { results: [], categoryStats: {} };
 
   const allResults: ValyuResult[] = [];
+  const categoryStats: Record<string, number> = {};
+  const excludeSet = new Set(excludeUrls);
+
+  // Pick 3-4 random categories to query this time
+  const shuffledCategories = [...CONTENT_CATEGORIES].sort(() => Math.random() - 0.5);
+  const selectedCategories = shuffledCategories.slice(0, 4);
+
+  // Time-based modifier for freshness
+  const timeModifiers = ["last hour", "today", "this morning", "breaking"];
+  const timeModifier = timeModifiers[Math.floor(Math.random() * timeModifiers.length)];
 
   try {
-    const results = await Promise.all(
-      queries.map(async (query) => {
-        try {
-          const response = await valyu.search(query, {
-            maxNumResults: 5,
-            maxPrice: 30,
-            relevanceThreshold: 0.3,
-          });
-          console.log(`Valyu query "${query}" returned ${response.results?.length || 0} results`);
-          return response.results || [];
-        } catch (err) {
-          console.error(`Valyu query error for "${query}":`, err);
-          return [];
-        }
-      })
-    );
+    const categoryPromises = selectedCategories.map(async ({ category, queries }) => {
+      // Pick a random query from this category and add time modifier
+      const baseQuery = queries[Math.floor(Math.random() * queries.length)];
+      const query = `${baseQuery} ${timeModifier}`;
+      
+      try {
+        const response = await valyu.search(query, {
+          maxNumResults: 5,
+          maxPrice: 30,
+          relevanceThreshold: 0.3,
+        });
+        
+        const count = response.results?.length || 0;
+        categoryStats[category] = count;
+        console.log(`Valyu [${category}] "${query.slice(0, 40)}..." → ${count} results`);
+        
+        return { category, results: response.results || [] };
+      } catch (err) {
+        console.error(`Valyu query error for "${category}":`, err);
+        categoryStats[category] = 0;
+        return { category, results: [] };
+      }
+    });
 
-    results.forEach((categoryResults) => {
-      categoryResults.forEach((r) => {
+    const categoryResults = await Promise.all(categoryPromises);
+
+    categoryResults.forEach(({ results }) => {
+      results.forEach((r) => {
+        // Skip if we've seen this URL before
+        if (excludeSet.has(r.url)) return;
+        
         allResults.push({
           title: r.title,
           url: r.url,
@@ -119,12 +151,14 @@ async function fetchFromValyu(): Promise<ValyuResult[]> {
 
   // Deduplicate by URL
   const seen = new Set<string>();
-  return allResults.filter((result) => {
+  const dedupedResults = allResults.filter((result) => {
     if (!result.url) return false;
     if (seen.has(result.url)) return false;
     seen.add(result.url);
     return true;
   });
+
+  return { results: dedupedResults, categoryStats };
 }
 
 // Process raw results with Claude
@@ -384,18 +418,24 @@ function getMockTopics(): Topic[] {
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const count = parseInt(searchParams.get("count") || "5", 10);
+  // URLs to exclude (passed from frontend to avoid repeats)
+  const excludeUrlsParam = searchParams.get("excludeUrls") || "";
+  const excludeUrls = excludeUrlsParam ? excludeUrlsParam.split(",") : [];
   
   let realTopics: Topic[] = [];
   let aiTopics: Topic[] = [];
   let mode: "live" | "demo" = "demo";
   let allResults: ValyuResult[] = [];
+  let categoryStats: Record<string, number> = {};
 
-  // Step 1: Try Valyu for real content
+  // Step 1: Try Valyu for real content (with category rotation)
   if (hasValyuKey) {
-    console.log("Fetching real content from Valyu...");
-    const valyuResults = await fetchFromValyu();
-    console.log(`Valyu returned ${valyuResults.length} results`);
-    allResults.push(...valyuResults);
+    console.log("Fetching real content from Valyu with category rotation...");
+    const valyuData = await fetchFromValyu(excludeUrls);
+    console.log(`Valyu returned ${valyuData.results.length} results`);
+    console.log("Category stats:", valyuData.categoryStats);
+    allResults.push(...valyuData.results);
+    categoryStats = valyuData.categoryStats;
   }
 
   // Step 2: Try NewsAPI as backup/supplement
@@ -428,11 +468,17 @@ export async function GET(request: Request) {
   }
 
   // Step 4: Generate 1-2 AI thoughts to mix in (clearly labeled)
-  if (hasAnthropicKey && mode === "live") {
-    const aiCount = Math.random() > 0.5 ? 2 : 1; // 1 or 2 AI thoughts
-    console.log(`Generating ${aiCount} AI thoughts...`);
-    aiTopics = await generateAIThoughts(aiCount);
-    console.log(`Generated ${aiTopics.length} AI thoughts`);
+  // Only generate AI content if we have real content (so it's a mix, not all AI)
+  if (hasAnthropicKey && realTopics.length > 0) {
+    try {
+      const aiCount = Math.random() > 0.6 ? 2 : 1; // Usually 1, sometimes 2
+      console.log(`Generating ${aiCount} AI thought(s)...`);
+      aiTopics = await generateAIThoughts(aiCount);
+      console.log(`Generated ${aiTopics.length} AI thought(s):`, aiTopics.map(t => t.source));
+    } catch (err) {
+      console.error("Failed to generate AI thoughts:", err);
+      // Continue without AI thoughts
+    }
   }
 
   // Step 5: Fall back to mock data only if we have no real content
@@ -462,12 +508,17 @@ export async function GET(request: Request) {
 
   const returnedTopics = mixed.slice(0, count);
   
+  // Return URLs for frontend to track and exclude next time
+  const returnedUrls = returnedTopics.map(t => t.sourceUrl).filter(Boolean);
+  
   return NextResponse.json({ 
     topics: returnedTopics, 
     mode,
     source: allResults.length > 0 ? "mixed" : "demo",
     realCount: realTopics.length,
     aiCount: aiTopics.length,
+    categoryStats, // Send back so frontend can track high-content categories
+    returnedUrls,  // URLs to exclude next time
     hasMore: true
   });
 }
