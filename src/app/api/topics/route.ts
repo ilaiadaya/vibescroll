@@ -343,11 +343,21 @@ function getMockTopics(): Topic[] {
 
 export async function GET() {
   let topics: Topic[];
+  let mode: "live" | "demo" = "demo";
 
   if (hasValyuKey && hasAnthropicKey) {
     // Use real APIs
+    console.log("Attempting to fetch from Valyu...");
     const results = await fetchFromValyu();
-    topics = await processWithClaude(results);
+    console.log(`Valyu returned ${results.length} results`);
+    
+    if (results.length > 0) {
+      console.log("Processing with Claude...");
+      topics = await processWithClaude(results);
+      console.log(`Claude processed ${topics.length} topics`);
+    } else {
+      topics = [];
+    }
 
     // Mix in some fun topics for variety (after position 4)
     if (topics.length > 4) {
@@ -359,13 +369,17 @@ export async function GET() {
 
     // Fallback to mock if API returns empty
     if (topics.length === 0) {
+      console.log("No topics from APIs, falling back to mock");
       topics = getMockTopics();
+    } else {
+      mode = "live";
     }
   } else {
     // Use mock data
+    console.log("No API keys detected, using mock data");
     await new Promise((resolve) => setTimeout(resolve, 500));
     topics = getMockTopics();
   }
 
-  return NextResponse.json({ topics });
+  return NextResponse.json({ topics, mode });
 }

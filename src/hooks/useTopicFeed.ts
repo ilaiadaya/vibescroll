@@ -22,6 +22,8 @@ interface TopicFeedState {
   isExploringConcept: boolean;
   // Concept cache for preloading
   conceptCache: Record<string, string>;
+  // API mode indicator
+  mode: "live" | "demo";
 }
 
 export function useTopicFeed({ preloadCount = 2 }: UseTopicFeedOptions = {}) {
@@ -38,6 +40,7 @@ export function useTopicFeed({ preloadCount = 2 }: UseTopicFeedOptions = {}) {
     conceptContent: null,
     isExploringConcept: false,
     conceptCache: {},
+    mode: "demo",
   });
 
   const preloadedRef = useRef<Set<string>>(new Set());
@@ -56,6 +59,7 @@ export function useTopicFeed({ preloadCount = 2 }: UseTopicFeedOptions = {}) {
       setState((prev) => ({
         ...prev,
         topics: data.topics,
+        mode: data.mode || "demo",
         isLoading: false,
       }));
     } catch (error) {
@@ -341,5 +345,7 @@ export function useTopicFeed({ preloadCount = 2 }: UseTopicFeedOptions = {}) {
     isExploringConcept: state.isExploringConcept,
     currentConcept: state.currentConcept,
     clearConceptExploration,
+    // API mode
+    mode: state.mode,
   };
 }

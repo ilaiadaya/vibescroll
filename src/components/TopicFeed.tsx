@@ -32,6 +32,7 @@ export function TopicFeed() {
     isExploringConcept,
     currentConcept,
     clearConceptExploration,
+    mode,
   } = useTopicFeed();
 
   // Text selection for exploring concepts
@@ -162,9 +163,20 @@ export function TopicFeed() {
       {...bind()}
       className="fixed inset-0 bg-black overflow-hidden touch-none"
     >
-      {/* Topic counter */}
-      <div className="fixed top-6 right-6 text-xs text-neutral-600 z-10">
-        {currentIndex + 1} / {topics.length}
+      {/* Topic counter and mode indicator */}
+      <div className="fixed top-6 right-6 text-xs text-neutral-600 z-10 flex items-center gap-3">
+        {mode === "demo" && (
+          <span className="px-2 py-1 bg-yellow-500/20 text-yellow-400 rounded text-[10px] uppercase tracking-wider">
+            Demo Mode
+          </span>
+        )}
+        {mode === "live" && (
+          <span className="px-2 py-1 bg-green-500/20 text-green-400 rounded text-[10px] uppercase tracking-wider flex items-center gap-1">
+            <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse" />
+            Live
+          </span>
+        )}
+        <span>{currentIndex + 1} / {topics.length}</span>
       </div>
 
       {/* Selection indicator */}
