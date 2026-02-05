@@ -33,16 +33,52 @@ interface ValyuResult {
   publication_date?: string;
 }
 
+// Fetch from NewsAPI (free tier - 100 requests/day)
+async function fetchFromNewsAPI(): Promise<ValyuResult[]> {
+  const newsApiKey = process.env.NEWS_API_KEY;
+  if (!newsApiKey) {
+    console.log("No NEWS_API_KEY, skipping NewsAPI");
+    return [];
+  }
+
+  try {
+    const response = await fetch(
+      `https://newsapi.org/v2/top-headlines?country=us&pageSize=10&apiKey=${newsApiKey}`
+    );
+    const data = await response.json();
+    
+    if (data.status !== "ok" || !data.articles) {
+      console.error("NewsAPI error:", data);
+      return [];
+    }
+
+    console.log(`NewsAPI returned ${data.articles.length} articles`);
+    
+    return data.articles
+      .filter((a: { title: string; description: string }) => a.title && a.description)
+      .map((a: { title: string; url: string; description: string; content: string; source: { name: string }; publishedAt: string }) => ({
+        title: a.title,
+        url: a.url,
+        content: a.description + (a.content ? " " + a.content : ""),
+        source: a.source?.name || "News",
+        publication_date: a.publishedAt,
+      }));
+  } catch (error) {
+    console.error("NewsAPI fetch error:", error);
+    return [];
+  }
+}
+
 // Fetch trending topics from Valyu using official SDK
 async function fetchFromValyu(): Promise<ValyuResult[]> {
   if (!valyu) return [];
 
+  // More specific queries for real trending content
   const queries = [
-    "breaking news today most important developments",
-    "technology innovation breakthroughs latest",
-    "science discoveries research findings recent",
-    "financial markets economy news updates",
-    "interesting trending topics viral today",
+    "trending news today 2026",
+    "breaking news latest headlines",
+    "viral story this week",
+    "top news stories today",
   ];
 
   const allResults: ValyuResult[] = [];
@@ -52,11 +88,11 @@ async function fetchFromValyu(): Promise<ValyuResult[]> {
       queries.map(async (query) => {
         try {
           const response = await valyu.search(query, {
-            maxNumResults: 3,
-            maxPrice: 20,
-            relevanceThreshold: 0.4,
+            maxNumResults: 5,
+            maxPrice: 30,
+            relevanceThreshold: 0.3,
           });
-          console.log(`Valyu query "${query.slice(0, 30)}..." returned ${response.results?.length || 0} results`);
+          console.log(`Valyu query "${query}" returned ${response.results?.length || 0} results`);
           return response.results || [];
         } catch (err) {
           console.error(`Valyu query error for "${query}":`, err);
@@ -168,100 +204,6 @@ Include 3-5 highlights - phrases that invite deeper exploration.`,
   return topics;
 }
 
-// Categories for AI-generated topics
-const TOPIC_CATEGORIES = [
-  "fascinating science facts",
-  "weird history stories",
-  "internet culture and memes",
-  "psychology and human behavior",
-  "technology conspiracies",
-  "nature's strangest phenomena",
-  "space and astronomy",
-  "food science",
-  "economics and money",
-  "sports trivia",
-  "art and creativity",
-  "philosophy questions",
-  "health myths debunked",
-  "animal behavior",
-  "music and sound",
-];
-
-// Generate fresh topics using Claude
-async function generateTopicsWithClaude(count: number = 3): Promise<Topic[]> {
-  if (!anthropic) return [];
-
-  // Pick random categories
-  const shuffled = TOPIC_CATEGORIES.sort(() => Math.random() - 0.5);
-  const selectedCategories = shuffled.slice(0, count);
-
-  try {
-    const response = await anthropic.messages.create({
-      model: "claude-sonnet-4-20250514",
-      max_tokens: 2000,
-      messages: [
-        {
-          role: "user",
-          content: `Generate ${count} fascinating, scroll-worthy topics for a knowledge discovery app. Each topic should be surprising, educational, and make someone want to learn more.
-
-Categories to cover: ${selectedCategories.join(", ")}
-
-Return ONLY valid JSON array:
-[
-  {
-    "title": "compelling clickable title, max 80 chars",
-    "summary": "2-3 sentence hook, max 200 chars",
-    "content": "the full interesting content, 400-600 chars, include surprising facts",
-    "category": "one of: news, tech, science, finance, culture, politics, health, sports, general",
-    "source": "believable source name",
-    "highlights": [
-      {"text": "interesting phrase to explore deeper", "reason": "why fascinating"}
-    ]
-  }
-]
-
-Make each topic genuinely interesting - the kind of thing people share with friends. Include 3-4 highlights per topic.`,
-        },
-      ],
-    });
-
-    const textContent = response.content.find((c) => c.type === "text");
-    if (!textContent || textContent.type !== "text") return [];
-
-    let jsonStr = textContent.text;
-    const jsonMatch = jsonStr.match(/\[[\s\S]*\]/);
-    if (jsonMatch) jsonStr = jsonMatch[0];
-
-    const parsed = JSON.parse(jsonStr);
-
-    return parsed.map((t: { 
-      title: string; 
-      summary: string; 
-      content: string; 
-      category: string; 
-      source: string;
-      highlights: Array<{ text: string }>;
-    }, idx: number) => ({
-      id: `gen-${Date.now()}-${idx}-${Math.random().toString(36).slice(2)}`,
-      title: t.title,
-      summary: t.summary,
-      content: t.content,
-      source: t.source || "Vibescroll",
-      sourceUrl: "https://vibescroll.app",
-      timestamp: new Date(),
-      category: t.category as TopicCategory,
-      highlights: (t.highlights || []).map((h: { text: string }, i: number) => ({
-        id: `gen-${Date.now()}-${idx}-h-${i}`,
-        text: h.text,
-        startIndex: 0,
-        endIndex: 0,
-      })),
-    }));
-  } catch (error) {
-    console.error("Error generating topics with Claude:", error);
-    return [];
-  }
-}
 
 // Mock data for when APIs aren't available
 function getMockTopics(): Topic[] {
@@ -363,52 +305,61 @@ export async function GET(request: Request) {
   
   let topics: Topic[] = [];
   let mode: "live" | "demo" = "demo";
+  let allResults: ValyuResult[] = [];
 
-  if (hasValyuKey && hasAnthropicKey) {
-    mode = "live";
-    
-    // Try to get news from Valyu first
-    console.log("Attempting to fetch from Valyu...");
-    const results = await fetchFromValyu();
-    console.log(`Valyu returned ${results.length} results`);
-    
-    if (results.length > 0) {
-      console.log("Processing news with Claude...");
-      const newsTopics = await processWithClaude(results);
-      topics.push(...newsTopics);
-    }
-
-    // Generate additional AI topics to fill the count
-    const neededCount = Math.max(0, count - topics.length);
-    if (neededCount > 0 || topics.length === 0) {
-      console.log(`Generating ${neededCount || count} AI topics...`);
-      const aiTopics = await generateTopicsWithClaude(neededCount || count);
-      topics.push(...aiTopics);
-    }
-    
-    // Shuffle to mix news and AI-generated topics
-    topics = topics.sort(() => Math.random() - 0.5);
-
-    // Fallback to mock if still empty
-    if (topics.length === 0) {
-      console.log("No topics from APIs, falling back to mock");
-      topics = getMockTopics();
-      mode = "demo";
-    }
-  } else {
-    // Use mock data
-    console.log("No API keys detected, using mock data");
-    await new Promise((resolve) => setTimeout(resolve, 300));
-    topics = getMockTopics();
-    topics = topics.sort(() => Math.random() - 0.5);
+  // Step 1: Try Valyu for real content
+  if (hasValyuKey) {
+    console.log("Fetching real content from Valyu...");
+    const valyuResults = await fetchFromValyu();
+    console.log(`Valyu returned ${valyuResults.length} results`);
+    allResults.push(...valyuResults);
   }
 
-  // Return requested count
+  // Step 2: Try NewsAPI as backup/supplement
+  const newsResults = await fetchFromNewsAPI();
+  if (newsResults.length > 0) {
+    console.log(`NewsAPI returned ${newsResults.length} articles`);
+    allResults.push(...newsResults);
+  }
+
+  // Deduplicate by title similarity
+  const seen = new Set<string>();
+  allResults = allResults.filter((r) => {
+    const key = r.title.toLowerCase().slice(0, 50);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+
+  // Step 3: Process real content with Claude (just formatting, not inventing)
+  if (allResults.length > 0 && hasAnthropicKey) {
+    mode = "live";
+    console.log(`Processing ${allResults.length} real articles with Claude...`);
+    
+    // Shuffle and take what we need
+    const shuffled = allResults.sort(() => Math.random() - 0.5);
+    const toProcess = shuffled.slice(0, count + 2); // Process a few extra in case some fail
+    
+    topics = await processWithClaude(toProcess);
+    console.log(`Successfully processed ${topics.length} topics`);
+  }
+
+  // Step 4: Fall back to mock data only if we have no real content
+  if (topics.length === 0) {
+    console.log("No real content available, using demo data");
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    topics = getMockTopics();
+    mode = "demo";
+  }
+
+  // Shuffle and return requested count
+  topics = topics.sort(() => Math.random() - 0.5);
   const returnedTopics = topics.slice(0, count);
   
   return NextResponse.json({ 
     topics: returnedTopics, 
-    mode, 
+    mode,
+    source: allResults.length > 0 ? "real" : "demo",
     hasMore: true
   });
 }
