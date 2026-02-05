@@ -86,7 +86,7 @@ export function TopicFeed() {
       } else {
         setQuestionState({
           isOpen: true,
-          position: pos,
+          position: { x: pos.clientX, y: pos.clientY },
           isLoading: false,
         });
       }
