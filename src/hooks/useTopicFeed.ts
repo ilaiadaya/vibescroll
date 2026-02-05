@@ -67,6 +67,16 @@ export function useTopicFeed({ preloadCount = 2 }: UseTopicFeedOptions = {}) {
     }
   }, []);
 
+  // Build expand URL with topic data
+  const buildExpandUrl = useCallback((topic: Topic) => {
+    const params = new URLSearchParams({
+      topicId: topic.id,
+      title: topic.title,
+      content: topic.content,
+    });
+    return `/api/expand?${params.toString()}`;
+  }, []);
+
   // Preload upcoming topics and their deep dives
   const preloadTopics = useCallback(async () => {
     const { topics, currentIndex } = state;
@@ -75,7 +85,8 @@ export function useTopicFeed({ preloadCount = 2 }: UseTopicFeedOptions = {}) {
     // Preload deep dive for current topic
     if (currentTopic && !preloadedRef.current.has(currentTopic.id)) {
       preloadedRef.current.add(currentTopic.id);
-      fetch(`/api/expand?topicId=${currentTopic.id}`).catch(() => {});
+      // Pass topic data with the request
+      fetch(buildExpandUrl(currentTopic)).catch(() => {});
       
       // Preload concept explorations for highlighted terms
       currentTopic.highlights.forEach((h) => {
@@ -85,7 +96,11 @@ export function useTopicFeed({ preloadCount = 2 }: UseTopicFeedOptions = {}) {
           fetch("/api/explore", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ concept: h.text, topicId: currentTopic.id }),
+            body: JSON.stringify({
+              concept: h.text,
+              topicId: currentTopic.id,
+              topicContext: currentTopic.content,
+            }),
           })
             .then((res) => res.json())
             .then((data) => {
@@ -110,10 +125,11 @@ export function useTopicFeed({ preloadCount = 2 }: UseTopicFeedOptions = {}) {
       const topic = topics[i];
       if (topic && !preloadedRef.current.has(topic.id)) {
         preloadedRef.current.add(topic.id);
-        fetch(`/api/expand?topicId=${topic.id}`).catch(() => {});
+        // Pass topic data with the request
+        fetch(buildExpandUrl(topic)).catch(() => {});
       }
     }
-  }, [state.topics, state.currentIndex, preloadCount]);
+  }, [state.topics, state.currentIndex, preloadCount, buildExpandUrl]);
 
   // Explore a concept (selected text)
   const exploreConcept = useCallback(async (concept: string) => {
@@ -250,8 +266,12 @@ export function useTopicFeed({ preloadCount = 2 }: UseTopicFeedOptions = {}) {
   const expandTopic = useCallback(async (topicId: string) => {
     if (state.expandedContent[topicId]) return;
 
+    // Find the topic to get its data
+    const topic = state.topics.find((t) => t.id === topicId);
+    if (!topic) return;
+
     try {
-      const response = await fetch(`/api/expand?topicId=${topicId}`);
+      const response = await fetch(buildExpandUrl(topic));
       if (!response.ok) throw new Error("Failed to expand topic");
       
       const data = await response.json();
@@ -266,7 +286,7 @@ export function useTopicFeed({ preloadCount = 2 }: UseTopicFeedOptions = {}) {
     } catch (error) {
       console.error("Error expanding topic:", error);
     }
-  }, [state.expandedContent]);
+  }, [state.expandedContent, state.topics, buildExpandUrl]);
 
   // Handle highlight click - now also explores the concept
   const handleHighlightClick = useCallback(async (highlight: TopicHighlight) => {

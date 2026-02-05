@@ -5,18 +5,18 @@ import Anthropic from "@anthropic-ai/sdk";
 const hasValyuKey = !!process.env.VALYU_API_KEY;
 const hasAnthropicKey = !!process.env.ANTHROPIC_API_KEY;
 
+// Log API key status on startup (without revealing the keys)
+console.log("API Keys status:", {
+  hasValyuKey,
+  hasAnthropicKey,
+  valuKeyLength: process.env.VALYU_API_KEY?.length || 0,
+  anthropicKeyLength: process.env.ANTHROPIC_API_KEY?.length || 0,
+});
+
 // Initialize Anthropic client if key exists
 const anthropic = hasAnthropicKey
   ? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
   : null;
-
-// In-memory topic cache (in production, use Redis or similar)
-const topicCache: Record<string, { title: string; content: string }> = {};
-
-// Store topic info for later expansion
-export function cacheTopicInfo(id: string, title: string, content: string) {
-  topicCache[id] = { title, content };
-}
 
 // Search Valyu for more context
 async function searchValyu(query: string): Promise<string> {
@@ -117,36 +117,41 @@ Market implications are significant. Currency traders position for **euro weakne
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const topicId = searchParams.get("topicId");
+  // Accept topic data directly via query params (URL encoded)
+  const topicTitle = searchParams.get("title");
+  const topicContent = searchParams.get("content");
 
   if (!topicId) {
     return NextResponse.json({ error: "Missing topicId" }, { status: 400 });
   }
 
-  let content: string;
+  console.log("Expand GET request:", { topicId, hasTitle: !!topicTitle, hasContent: !!topicContent });
 
-  if (hasValyuKey && hasAnthropicKey) {
-    // Use real APIs
-    const cachedTopic = topicCache[topicId];
+  let content: string = "";
 
-    if (cachedTopic) {
-      const additionalContext = await searchValyu(cachedTopic.title);
-      content = await expandWithClaude(
-        cachedTopic.title,
-        cachedTopic.content,
-        additionalContext
-      );
-    } else {
-      // No cached topic, use mock
-      content = mockExpansions[topicId] || "";
+  if (hasValyuKey && hasAnthropicKey && topicTitle && topicContent) {
+    // Use real APIs with provided topic data
+    console.log("Using real APIs for expansion");
+    try {
+      const additionalContext = await searchValyu(topicTitle);
+      content = await expandWithClaude(topicTitle, topicContent, additionalContext);
+    } catch (error) {
+      console.error("Error in expand:", error);
     }
 
     // Fallback to mock if API fails
     if (!content) {
+      console.log("API call failed, falling back to mock");
       content = mockExpansions[topicId] || "Additional context is being gathered...";
     }
-  } else {
-    // Use mock data
+  } else if (!hasValyuKey || !hasAnthropicKey) {
+    // Use mock data - no API keys
+    console.log("No API keys, using mock data");
     await new Promise((resolve) => setTimeout(resolve, 300));
+    content = mockExpansions[topicId] || "Additional context is being gathered for this topic.";
+  } else {
+    // API keys present but no topic data provided
+    console.log("API keys present but no topic data, using mock");
     content = mockExpansions[topicId] || "Additional context is being gathered for this topic.";
   }
 
@@ -155,7 +160,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   const body = await request.json();
-  const { topicId, highlightText } = body;
+  const { topicId, highlightText, topicContent } = body;
 
   if (!topicId || !highlightText) {
     return NextResponse.json(
@@ -164,14 +169,16 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  console.log("Expand POST request:", { topicId, highlightText, hasContent: !!topicContent });
+
   let content: string = "";
 
   if (hasAnthropicKey) {
-    // Generate detail with Claude
-    const cachedTopic = topicCache[topicId];
-    const context = cachedTopic?.content || "";
+    // Generate detail with Claude - use provided topicContent
+    const context = topicContent || "";
 
     try {
+      console.log("Using Claude for highlight explanation");
       const response = await anthropic!.messages.create({
         model: "claude-sonnet-4-20250514",
         max_tokens: 600,
@@ -189,9 +196,12 @@ Provide a focused explanation in 2-3 paragraphs. Be informative and engaging.`,
 
       const textContent = response.content.find((c) => c.type === "text");
       content = textContent && textContent.type === "text" ? textContent.text : "";
-    } catch {
+    } catch (error) {
+      console.error("Claude highlight error:", error);
       content = "";
     }
+  } else {
+    console.log("No Anthropic key for highlight expansion");
   }
 
   // Fallback

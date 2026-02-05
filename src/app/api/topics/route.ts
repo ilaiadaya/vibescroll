@@ -6,6 +6,14 @@ import type { Topic, TopicCategory } from "@/types";
 const hasValyuKey = !!process.env.VALYU_API_KEY;
 const hasAnthropicKey = !!process.env.ANTHROPIC_API_KEY;
 
+// Log API key status (without revealing the keys)
+console.log("Topics API - Keys status:", {
+  hasValyuKey,
+  hasAnthropicKey,
+  valuKeyLength: process.env.VALYU_API_KEY?.length || 0,
+  anthropicKeyLength: process.env.ANTHROPIC_API_KEY?.length || 0,
+});
+
 // Initialize Anthropic client if key exists
 const anthropic = hasAnthropicKey
   ? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })

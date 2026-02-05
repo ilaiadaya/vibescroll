@@ -5,6 +5,12 @@ import Anthropic from "@anthropic-ai/sdk";
 const hasValyuKey = !!process.env.VALYU_API_KEY;
 const hasAnthropicKey = !!process.env.ANTHROPIC_API_KEY;
 
+// Log API key status
+console.log("Explore API - Keys status:", {
+  hasValyuKey,
+  hasAnthropicKey,
+});
+
 // Initialize Anthropic client if key exists
 const anthropic = hasAnthropicKey
   ? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
