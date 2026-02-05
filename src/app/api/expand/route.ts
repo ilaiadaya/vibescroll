@@ -59,7 +59,7 @@ async function expandWithClaude(
 
   try {
     const response = await anthropic.messages.create({
-      model: "claude-sonnet-4-20250514",
+      model: "claude-3-5-haiku-20241022",
       max_tokens: 1500,
       messages: [
         {
@@ -176,7 +176,7 @@ export async function POST(request: NextRequest) {
     try {
       console.log("Using Claude for highlight explanation");
       const response = await anthropic!.messages.create({
-        model: "claude-sonnet-4-20250514",
+        model: "claude-3-5-haiku-20241022",
         max_tokens: 600,
         messages: [
           {

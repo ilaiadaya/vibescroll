@@ -216,7 +216,7 @@ async function processWithClaude(results: ValyuResult[]): Promise<Topic[]> {
         : JSON.stringify(result.content);
       
       const response = await anthropic.messages.create({
-        model: "claude-sonnet-4-20250514",
+        model: "claude-3-5-haiku-20241022",
         max_tokens: 1024,
         messages: [
           {
@@ -285,7 +285,7 @@ async function generateAIThoughts(count: number = 2): Promise<Topic[]> {
 
   try {
     const response = await anthropic.messages.create({
-      model: "claude-sonnet-4-20250514",
+      model: "claude-3-5-haiku-20241022",
       max_tokens: 2000,
       messages: [
         {
@@ -527,11 +527,19 @@ export async function GET(request: Request) {
     console.log(`Successfully processed ${realTopics.length} real topics`);
   }
 
-  // Step 4: Generate 1-2 AI thoughts to mix in (clearly labeled)
-  // Only generate AI content if we have real content (so it's a mix, not all AI)
-  if (hasAnthropicKey && realTopics.length > 0) {
+  // Step 4: Fall back to mock data if we have no real content
+  if (realTopics.length === 0) {
+    console.log("No real content available, using demo data");
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    realTopics = getMockTopics();
+    mode = "demo";
+  }
+
+  // Step 5: Generate 1-2 AI thoughts to mix in (clearly labeled)
+  // Generate even with demo data to add variety
+  if (hasAnthropicKey) {
     try {
-      const aiCount = Math.random() > 0.6 ? 2 : 1; // Usually 1, sometimes 2
+      const aiCount = Math.random() > 0.5 ? 2 : 1; // 50% chance of 2
       console.log(`Generating ${aiCount} AI thought(s)...`);
       aiTopics = await generateAIThoughts(aiCount);
       console.log(`Generated ${aiTopics.length} AI thought(s):`, aiTopics.map(t => t.source));
@@ -539,14 +547,6 @@ export async function GET(request: Request) {
       console.error("Failed to generate AI thoughts:", err);
       // Continue without AI thoughts
     }
-  }
-
-  // Step 5: Fall back to mock data only if we have no real content
-  if (realTopics.length === 0 && aiTopics.length === 0) {
-    console.log("No content available, using demo data");
-    await new Promise((resolve) => setTimeout(resolve, 300));
-    realTopics = getMockTopics();
-    mode = "demo";
   }
 
   // Step 6: Mix real news with AI thoughts

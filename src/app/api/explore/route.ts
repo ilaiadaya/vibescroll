@@ -110,7 +110,7 @@ Format with markdown: use **bold** for key terms, bullet points for lists.`;
 
   try {
     const response = await anthropic.messages.create({
-      model: "claude-sonnet-4-20250514",
+      model: "claude-3-5-haiku-20241022",
       max_tokens: 1000,
       messages: [
         { role: "user", content: userPrompt },

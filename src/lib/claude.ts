@@ -67,7 +67,7 @@ async function summarizeAndExtractHighlights(
   result: RawSearchResult
 ): Promise<ProcessedTopic> {
   const response = await anthropic.messages.create({
-    model: "claude-sonnet-4-20250514",
+    model: "claude-3-5-haiku-20241022",
     max_tokens: 1024,
     messages: [
       {
@@ -116,7 +116,7 @@ export async function expandContent(
   additionalContext: string
 ): Promise<string> {
   const response = await anthropic.messages.create({
-    model: "claude-sonnet-4-20250514",
+    model: "claude-3-5-haiku-20241022",
     max_tokens: 1500,
     messages: [
       {
@@ -148,7 +148,7 @@ export async function answerQuestion(
   additionalContext?: string
 ): Promise<string> {
   const response = await anthropic.messages.create({
-    model: "claude-sonnet-4-20250514",
+    model: "claude-3-5-haiku-20241022",
     max_tokens: 800,
     messages: [
       {
@@ -175,7 +175,7 @@ export async function expandHighlight(
   highlightText: string
 ): Promise<string> {
   const response = await anthropic.messages.create({
-    model: "claude-sonnet-4-20250514",
+    model: "claude-3-5-haiku-20241022",
     max_tokens: 600,
     messages: [
       {
