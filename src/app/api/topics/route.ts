@@ -54,7 +54,7 @@ async function fetchFromValyu(): Promise<ValyuResult[]> {
           const response = await valyu.search(query, {
             maxNumResults: 3,
             maxPrice: 20,
-            similarityThreshold: 0.4,
+            relevanceThreshold: 0.4,
           });
           console.log(`Valyu query "${query.slice(0, 30)}..." returned ${response.results?.length || 0} results`);
           return response.results || [];

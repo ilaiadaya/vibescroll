@@ -31,7 +31,7 @@ async function searchValyu(query: string): Promise<string> {
     const response = await valyu.search(`${query} detailed analysis background context`, {
       maxNumResults: 5,
       maxPrice: 20,
-      similarityThreshold: 0.4,
+      relevanceThreshold: 0.4,
     });
 
     const results = response.results || [];

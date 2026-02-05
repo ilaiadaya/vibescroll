@@ -30,7 +30,7 @@ export async function searchTopics(
   const response = await valyu.search(query, {
     maxNumResults: maxResults,
     maxPrice: 20,
-    similarityThreshold: 0.4,
+    relevanceThreshold: 0.4,
   });
 
   return response.results || [];
