@@ -204,6 +204,88 @@ Include 3-5 highlights - phrases that invite deeper exploration.`,
   return topics;
 }
 
+// Generate AI thoughts/facts/jokes - clearly labeled as AI-generated
+async function generateAIThoughts(count: number = 2): Promise<Topic[]> {
+  if (!anthropic) return [];
+
+  try {
+    const response = await anthropic.messages.create({
+      model: "claude-sonnet-4-20250514",
+      max_tokens: 2000,
+      messages: [
+        {
+          role: "user",
+          content: `You are creating content for a knowledge discovery app. Generate ${count} pieces of content. 
+
+YOU DECIDE what type each one should be. Mix it up! Options include:
+- A fascinating fact about nature, science, or the universe
+- A thought-provoking philosophical question or insight  
+- A clever joke or witty observation
+- An interesting "did you know" about history, culture, or technology
+- A mindfulness/presence reminder
+- A weird but true fact
+- A creative "what if" scenario
+
+Be creative and varied. Make each one genuinely interesting and shareable.
+
+Return ONLY valid JSON array:
+[
+  {
+    "type": "fact" | "philosophy" | "joke" | "did_you_know" | "mindfulness" | "weird_fact" | "what_if",
+    "title": "engaging title, max 60 chars",
+    "content": "the full content, 100-300 chars, make it memorable",
+    "highlights": [{"text": "interesting phrase to explore"}]
+  }
+]`,
+        },
+      ],
+    });
+
+    const textContent = response.content.find((c) => c.type === "text");
+    if (!textContent || textContent.type !== "text") return [];
+
+    let jsonStr = textContent.text;
+    const jsonMatch = jsonStr.match(/\[[\s\S]*\]/);
+    if (jsonMatch) jsonStr = jsonMatch[0];
+
+    const parsed = JSON.parse(jsonStr);
+
+    const typeLabels: Record<string, string> = {
+      fact: "🧠 AI Fact",
+      philosophy: "💭 AI Thought",
+      joke: "😄 AI Joke",
+      did_you_know: "💡 Did You Know",
+      mindfulness: "🧘 Moment",
+      weird_fact: "🤯 Weird but True",
+      what_if: "🔮 What If",
+    };
+
+    return parsed.map((t: { 
+      type: string;
+      title: string; 
+      content: string; 
+      highlights: Array<{ text: string }>;
+    }, idx: number) => ({
+      id: `ai-${Date.now()}-${idx}-${Math.random().toString(36).slice(2)}`,
+      title: t.title,
+      summary: t.content.slice(0, 150),
+      content: t.content,
+      source: typeLabels[t.type] || "🤖 AI Generated",
+      sourceUrl: "",
+      timestamp: new Date(),
+      category: "general" as TopicCategory,
+      highlights: (t.highlights || []).map((h: { text: string }, i: number) => ({
+        id: `ai-${Date.now()}-${idx}-h-${i}`,
+        text: h.text,
+        startIndex: 0,
+        endIndex: 0,
+      })),
+    }));
+  } catch (error) {
+    console.error("Error generating AI thoughts:", error);
+    return [];
+  }
+}
 
 // Mock data for when APIs aren't available
 function getMockTopics(): Topic[] {
@@ -301,9 +383,10 @@ function getMockTopics(): Topic[] {
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
-  const count = parseInt(searchParams.get("count") || "3", 10);
+  const count = parseInt(searchParams.get("count") || "5", 10);
   
-  let topics: Topic[] = [];
+  let realTopics: Topic[] = [];
+  let aiTopics: Topic[] = [];
   let mode: "live" | "demo" = "demo";
   let allResults: ValyuResult[] = [];
 
@@ -336,30 +419,55 @@ export async function GET(request: Request) {
     mode = "live";
     console.log(`Processing ${allResults.length} real articles with Claude...`);
     
-    // Shuffle and take what we need
+    // Shuffle and take what we need for real news
     const shuffled = allResults.sort(() => Math.random() - 0.5);
-    const toProcess = shuffled.slice(0, count + 2); // Process a few extra in case some fail
+    const toProcess = shuffled.slice(0, count); 
     
-    topics = await processWithClaude(toProcess);
-    console.log(`Successfully processed ${topics.length} topics`);
+    realTopics = await processWithClaude(toProcess);
+    console.log(`Successfully processed ${realTopics.length} real topics`);
   }
 
-  // Step 4: Fall back to mock data only if we have no real content
-  if (topics.length === 0) {
-    console.log("No real content available, using demo data");
+  // Step 4: Generate 1-2 AI thoughts to mix in (clearly labeled)
+  if (hasAnthropicKey && mode === "live") {
+    const aiCount = Math.random() > 0.5 ? 2 : 1; // 1 or 2 AI thoughts
+    console.log(`Generating ${aiCount} AI thoughts...`);
+    aiTopics = await generateAIThoughts(aiCount);
+    console.log(`Generated ${aiTopics.length} AI thoughts`);
+  }
+
+  // Step 5: Fall back to mock data only if we have no real content
+  if (realTopics.length === 0 && aiTopics.length === 0) {
+    console.log("No content available, using demo data");
     await new Promise((resolve) => setTimeout(resolve, 300));
-    topics = getMockTopics();
+    realTopics = getMockTopics();
     mode = "demo";
   }
 
-  // Shuffle and return requested count
-  topics = topics.sort(() => Math.random() - 0.5);
-  const returnedTopics = topics.slice(0, count);
+  // Step 6: Mix real news with AI thoughts
+  // Strategy: Real news comes first (sorted by timestamp), AI thoughts sprinkled in
+  const sortedReal = realTopics.sort((a, b) => 
+    new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+  );
+  
+  // Insert AI thoughts at random positions (but not first)
+  const mixed: Topic[] = [...sortedReal];
+  aiTopics.forEach((aiTopic) => {
+    // Insert AI thought at random position (2nd position or later)
+    const insertAt = Math.min(
+      1 + Math.floor(Math.random() * Math.max(1, mixed.length - 1)),
+      mixed.length
+    );
+    mixed.splice(insertAt, 0, aiTopic);
+  });
+
+  const returnedTopics = mixed.slice(0, count);
   
   return NextResponse.json({ 
     topics: returnedTopics, 
     mode,
-    source: allResults.length > 0 ? "real" : "demo",
+    source: allResults.length > 0 ? "mixed" : "demo",
+    realCount: realTopics.length,
+    aiCount: aiTopics.length,
     hasMore: true
   });
 }
