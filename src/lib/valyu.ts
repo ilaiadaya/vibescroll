@@ -1,4 +1,5 @@
-import type { Topic, TopicCategory } from "@/types";
+import { Valyu } from "valyu-js";
+import type { TopicCategory } from "@/types";
 
 interface ValyuSearchResult {
   title: string;
@@ -9,50 +10,30 @@ interface ValyuSearchResult {
   publication_date?: string;
 }
 
-interface ValyuSearchResponse {
-  success: boolean;
-  error: string;
-  query: string;
-  results: ValyuSearchResult[];
+// Create Valyu client
+function getValyuClient(): Valyu | null {
+  const apiKey = process.env.VALYU_API_KEY;
+  if (!apiKey) return null;
+  return new Valyu(apiKey);
 }
-
-const VALYU_API_URL = "https://api.valyu.ai/v1/search";
 
 export async function searchTopics(
   query: string,
   maxResults: number = 10
 ): Promise<ValyuSearchResult[]> {
-  const apiKey = process.env.VALYU_API_KEY;
+  const valyu = getValyuClient();
   
-  if (!apiKey) {
+  if (!valyu) {
     throw new Error("VALYU_API_KEY is not configured");
   }
 
-  const response = await fetch(VALYU_API_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      query,
-      maxNumResults: maxResults,
-      maxPrice: 20,
-      relevanceThreshold: 0.4,
-    }),
+  const response = await valyu.search(query, {
+    maxNumResults: maxResults,
+    maxPrice: 20,
+    similarityThreshold: 0.4,
   });
 
-  if (!response.ok) {
-    throw new Error(`Valyu API error: ${response.status}`);
-  }
-
-  const data: ValyuSearchResponse = await response.json();
-  
-  if (!data.success) {
-    throw new Error(data.error || "Search failed");
-  }
-
-  return data.results;
+  return response.results || [];
 }
 
 export async function getTrendingTopics(
@@ -82,6 +63,7 @@ export async function getTrendingTopics(
   // Deduplicate by URL
   const seen = new Set<string>();
   return allResults.filter((result) => {
+    if (!result.url) return false;
     if (seen.has(result.url)) return false;
     seen.add(result.url);
     return true;

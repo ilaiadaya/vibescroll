@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
+import { Valyu } from "valyu-js";
 import type { Topic, TopicCategory } from "@/types";
 
 // Check if we have API keys
@@ -14,9 +15,13 @@ console.log("Topics API - Keys status:", {
   anthropicKeyLength: process.env.ANTHROPIC_API_KEY?.length || 0,
 });
 
-// Initialize Anthropic client if key exists
+// Initialize clients if keys exist
 const anthropic = hasAnthropicKey
   ? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+  : null;
+
+const valyu = hasValyuKey
+  ? new Valyu(process.env.VALYU_API_KEY!)
   : null;
 
 interface ValyuResult {
@@ -28,9 +33,9 @@ interface ValyuResult {
   publication_date?: string;
 }
 
-// Fetch trending topics from Valyu
+// Fetch trending topics from Valyu using official SDK
 async function fetchFromValyu(): Promise<ValyuResult[]> {
-  if (!hasValyuKey) return [];
+  if (!valyu) return [];
 
   const queries = [
     "breaking news today most important developments",
@@ -45,23 +50,18 @@ async function fetchFromValyu(): Promise<ValyuResult[]> {
   try {
     const results = await Promise.all(
       queries.map(async (query) => {
-        const response = await fetch("https://api.valyu.ai/v1/search", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${process.env.VALYU_API_KEY}`,
-          },
-          body: JSON.stringify({
-            query,
+        try {
+          const response = await valyu.search(query, {
             maxNumResults: 3,
             maxPrice: 20,
-            relevanceThreshold: 0.4,
-          }),
-        });
-
-        if (!response.ok) return [];
-        const data = await response.json();
-        return data.results || [];
+            similarityThreshold: 0.4,
+          });
+          console.log(`Valyu query "${query.slice(0, 30)}..." returned ${response.results?.length || 0} results`);
+          return response.results || [];
+        } catch (err) {
+          console.error(`Valyu query error for "${query}":`, err);
+          return [];
+        }
       })
     );
 
@@ -75,6 +75,7 @@ async function fetchFromValyu(): Promise<ValyuResult[]> {
   // Deduplicate by URL
   const seen = new Set<string>();
   return allResults.filter((result) => {
+    if (!result.url) return false;
     if (seen.has(result.url)) return false;
     seen.add(result.url);
     return true;

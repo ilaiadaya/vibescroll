@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
+import { Valyu } from "valyu-js";
 
 // Check if we have API keys
 const hasValyuKey = !!process.env.VALYU_API_KEY;
@@ -13,34 +14,27 @@ console.log("API Keys status:", {
   anthropicKeyLength: process.env.ANTHROPIC_API_KEY?.length || 0,
 });
 
-// Initialize Anthropic client if key exists
+// Initialize clients if keys exist
 const anthropic = hasAnthropicKey
   ? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
   : null;
 
-// Search Valyu for more context
+const valyu = hasValyuKey
+  ? new Valyu(process.env.VALYU_API_KEY!)
+  : null;
+
+// Search Valyu for more context using official SDK
 async function searchValyu(query: string): Promise<string> {
-  if (!hasValyuKey) return "";
+  if (!valyu) return "";
 
   try {
-    const response = await fetch("https://api.valyu.ai/v1/search", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${process.env.VALYU_API_KEY}`,
-      },
-      body: JSON.stringify({
-        query: `${query} detailed analysis background context`,
-        maxNumResults: 5,
-        maxPrice: 20,
-        relevanceThreshold: 0.4,
-      }),
+    const response = await valyu.search(`${query} detailed analysis background context`, {
+      maxNumResults: 5,
+      maxPrice: 20,
+      similarityThreshold: 0.4,
     });
 
-    if (!response.ok) return "";
-
-    const data = await response.json();
-    const results = data.results || [];
+    const results = response.results || [];
 
     return results
       .slice(0, 3)
@@ -48,7 +42,8 @@ async function searchValyu(query: string): Promise<string> {
         `${r.title}: ${r.content?.slice(0, 800)}`
       )
       .join("\n\n");
-  } catch {
+  } catch (err) {
+    console.error("Valyu search error:", err);
     return "";
   }
 }

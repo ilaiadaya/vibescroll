@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
+import { Valyu } from "valyu-js";
 
 // Check if we have API keys
 const hasValyuKey = !!process.env.VALYU_API_KEY;
@@ -11,35 +12,29 @@ console.log("Explore API - Keys status:", {
   hasAnthropicKey,
 });
 
-// Initialize Anthropic client if key exists
+// Initialize clients if keys exist
 const anthropic = hasAnthropicKey
   ? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
   : null;
 
-// Valyu search function
+const valyu = hasValyuKey
+  ? new Valyu(process.env.VALYU_API_KEY!)
+  : null;
+
+// Valyu search function using official SDK
 async function searchValyu(query: string, maxResults: number = 5) {
-  if (!hasValyuKey) return null;
+  if (!valyu) return null;
 
   try {
-    const response = await fetch("https://api.valyu.ai/v1/search", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${process.env.VALYU_API_KEY}`,
-      },
-      body: JSON.stringify({
-        query,
-        maxNumResults: maxResults,
-        maxPrice: 20,
-        relevanceThreshold: 0.4,
-      }),
+    const response = await valyu.search(query, {
+      maxNumResults: maxResults,
+      maxPrice: 20,
+      similarityThreshold: 0.4,
     });
 
-    if (!response.ok) return null;
-
-    const data = await response.json();
-    return data.results || [];
-  } catch {
+    return response.results || [];
+  } catch (err) {
+    console.error("Valyu search error:", err);
     return null;
   }
 }
