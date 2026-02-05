@@ -50,49 +50,84 @@ export function TopicFeed() {
     isLoading: false,
   });
 
-  // Selection popup state
-  const [selectionPopup, setSelectionPopup] = useState<{
-    isOpen: boolean;
+  // Selection input state - shows at bottom when text is selected
+  const [selectionInput, setSelectionInput] = useState<{
     text: string;
-    position: { x: number; y: number };
+    question: string;
   }>({
-    isOpen: false,
     text: "",
-    position: { x: 0, y: 0 },
+    question: "",
   });
 
-  // Handle Enter key - show popup for selected text or default deep dive
+  // Handle question submission (includes selected text context)
+  const handleQuestionSubmit = useCallback(async (question: string, selectedTextOverride?: string) => {
+    if (!currentTopic) return;
+
+    const contextText = selectedTextOverride || questionState.selectedText || selectionInput.text;
+    
+    setQuestionState((prev) => ({ ...prev, isLoading: true, isOpen: true }));
+
+    try {
+      const response = await fetch("/api/ask", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          topicId: currentTopic.id,
+          question,
+          selectedText: contextText,
+          topicContext: currentTopic.content,
+        }),
+      });
+
+      if (!response.ok) throw new Error("Failed to get answer");
+      
+      const data = await response.json();
+      
+      setQuestionState((prev) => ({
+        ...prev,
+        isLoading: false,
+        answer: data.answer,
+      }));
+    } catch {
+      setQuestionState((prev) => ({
+        ...prev,
+        isLoading: false,
+        answer: "Sorry, I couldn't find an answer to that question.",
+      }));
+    }
+  }, [currentTopic, questionState.selectedText, selectionInput.text]);
+
+  // Handle Enter key
   const handleEnter = useCallback(() => {
     if (hasSelection && selectedText) {
-      // Get selection position
-      const selection = window.getSelection();
-      if (selection && selection.rangeCount > 0) {
-        const range = selection.getRangeAt(0);
-        const rect = range.getBoundingClientRect();
-        setSelectionPopup({
-          isOpen: true,
-          text: selectedText,
-          position: { x: rect.left + rect.width / 2, y: rect.bottom + 10 },
-        });
-      }
+      // Show selection input at bottom
+      setSelectionInput({ text: selectedText, question: "" });
       clearSelection();
-    } else if (selectionPopup.isOpen) {
-      // If popup is open and enter is pressed again, explore the concept
-      exploreConcept(selectionPopup.text);
-      setSelectionPopup({ isOpen: false, text: "", position: { x: 0, y: 0 } });
+    } else if (selectionInput.text) {
+      // Selection input is active
+      if (selectionInput.question.trim()) {
+        // User typed a question - ask about the selected text
+        handleQuestionSubmit(selectionInput.question);
+        setQuestionState((prev) => ({ ...prev, isOpen: true, selectedText: selectionInput.text }));
+        setSelectionInput({ text: "", question: "" });
+      } else {
+        // No question typed - explore the concept
+        exploreConcept(selectionInput.text);
+        setSelectionInput({ text: "", question: "" });
+      }
     } else {
       // Default: go deeper (same as right arrow)
       navigate("right");
     }
-  }, [hasSelection, selectedText, exploreConcept, clearSelection, navigate, selectionPopup.isOpen, selectionPopup.text]);
+  }, [hasSelection, selectedText, exploreConcept, clearSelection, navigate, selectionInput, handleQuestionSubmit]);
 
   // Handle keyboard navigation
   useKeyboardNavigation({
     onNavigate: navigate,
     onEnter: handleEnter,
     onEscape: () => {
-      if (selectionPopup.isOpen) {
-        setSelectionPopup({ isOpen: false, text: "", position: { x: 0, y: 0 } });
+      if (selectionInput.text) {
+        setSelectionInput({ text: "", question: "" });
       } else if (questionState.isOpen) {
         setQuestionState({ isOpen: false, isLoading: false });
       } else if (currentConcept) {
@@ -120,71 +155,6 @@ export function TopicFeed() {
       }
     },
   });
-
-  // Handle question submission (includes selected text context)
-  const handleQuestionSubmit = useCallback(async (question: string) => {
-    if (!currentTopic) return;
-
-    setQuestionState((prev) => ({ ...prev, isLoading: true }));
-
-    try {
-      const response = await fetch("/api/ask", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          topicId: currentTopic.id,
-          question,
-          selectedText: questionState.selectedText || selectionPopup.text,
-          topicContext: currentTopic.content,
-        }),
-      });
-
-      if (!response.ok) throw new Error("Failed to get answer");
-      
-      const data = await response.json();
-      
-      setQuestionState((prev) => ({
-        ...prev,
-        isLoading: false,
-        answer: data.answer,
-      }));
-    } catch {
-      setQuestionState((prev) => ({
-        ...prev,
-        isLoading: false,
-        answer: "Sorry, I couldn't find an answer to that question.",
-      }));
-    }
-  }, [currentTopic, questionState.selectedText, selectionPopup.text]);
-
-  // Handle asking a question about selected text
-  const handleAskAboutSelection = useCallback((question?: string) => {
-    if (question) {
-      // User typed a question
-      setQuestionState({
-        isOpen: true,
-        selectedText: selectionPopup.text,
-        isLoading: false,
-      });
-      setSelectionPopup({ isOpen: false, text: "", position: { x: 0, y: 0 } });
-      handleQuestionSubmit(question);
-    } else {
-      // User wants to type a question
-      setQuestionState({
-        isOpen: true,
-        selectedText: selectionPopup.text,
-        isLoading: false,
-        position: selectionPopup.position,
-      });
-      setSelectionPopup({ isOpen: false, text: "", position: { x: 0, y: 0 } });
-    }
-  }, [selectionPopup.text, selectionPopup.position, handleQuestionSubmit]);
-
-  // Handle exploring the selected concept
-  const handleExploreSelection = useCallback(() => {
-    exploreConcept(selectionPopup.text);
-    setSelectionPopup({ isOpen: false, text: "", position: { x: 0, y: 0 } });
-  }, [exploreConcept, selectionPopup.text]);
 
   const handleHighlight = useCallback((highlight: TopicHighlight) => {
     handleHighlightClick(highlight);
@@ -237,9 +207,9 @@ export function TopicFeed() {
         <span>{currentIndex + 1} / {topics.length}</span>
       </div>
 
-      {/* Selection indicator - shows when text is selected */}
+      {/* Selection indicator - shows when text is selected but not yet confirmed */}
       <AnimatePresence>
-        {hasSelection && !selectionPopup.isOpen && (
+        {hasSelection && !selectionInput.text && (
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
@@ -248,7 +218,6 @@ export function TopicFeed() {
           >
             <span className="text-white/80">Press</span>
             <span className="bg-white/20 px-2 py-0.5 rounded text-xs font-mono">↵</span>
-            <span className="text-white/80">for options</span>
             <span className="text-white font-medium truncate max-w-[200px]">
               "{selectedText}"
             </span>
@@ -256,45 +225,54 @@ export function TopicFeed() {
         )}
       </AnimatePresence>
 
-      {/* Selection popup - shows after pressing Enter on selection */}
+      {/* Selection input bar - shows at bottom after pressing Enter on selection */}
       <AnimatePresence>
-        {selectionPopup.isOpen && (
+        {selectionInput.text && (
           <motion.div
-            initial={{ opacity: 0, scale: 0.9, y: 10 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.9, y: 10 }}
-            className="fixed z-30 bg-neutral-900 border border-neutral-700 rounded-xl shadow-2xl p-4 min-w-[300px] max-w-[400px]"
-            style={{
-              left: Math.min(Math.max(selectionPopup.position.x - 150, 20), window.innerWidth - 320),
-              top: Math.min(selectionPopup.position.y, window.innerHeight - 250),
-            }}
+            initial={{ opacity: 0, y: 50 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 50 }}
+            className="fixed bottom-0 left-0 right-0 z-30 bg-neutral-900/95 backdrop-blur-sm border-t border-neutral-800 p-4"
           >
-            <div className="mb-3">
-              <span className="text-neutral-400 text-xs uppercase tracking-wider">Selected:</span>
-              <p className="text-white font-medium mt-1 line-clamp-2">"{selectionPopup.text}"</p>
-            </div>
-            
-            <div className="space-y-2">
-              <button
-                onClick={handleExploreSelection}
-                className="w-full px-4 py-2.5 bg-purple-600 hover:bg-purple-500 text-white rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
-              >
-                <span>🔍</span> Explore this concept
-              </button>
+            <div className="max-w-2xl mx-auto">
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-purple-400 text-sm">📝</span>
+                <span className="text-neutral-400 text-sm">Selected:</span>
+                <span className="text-white text-sm font-medium truncate max-w-[300px]">
+                  "{selectionInput.text}"
+                </span>
+              </div>
               
-              <button
-                onClick={() => handleAskAboutSelection()}
-                className="w-full px-4 py-2.5 bg-neutral-800 hover:bg-neutral-700 text-white rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
-              >
-                <span>💬</span> Ask a question about this
-              </button>
-              
-              <button
-                onClick={() => setSelectionPopup({ isOpen: false, text: "", position: { x: 0, y: 0 } })}
-                className="w-full px-4 py-2 text-neutral-500 hover:text-neutral-300 text-xs transition-colors"
-              >
-                Cancel (Esc)
-              </button>
+              <div className="flex gap-3">
+                <input
+                  type="text"
+                  value={selectionInput.question}
+                  onChange={(e) => setSelectionInput((prev) => ({ ...prev, question: e.target.value }))}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      handleEnter();
+                    } else if (e.key === "Escape") {
+                      setSelectionInput({ text: "", question: "" });
+                    }
+                  }}
+                  placeholder="Type a question or press Enter to explore..."
+                  className="flex-1 bg-neutral-800 border border-neutral-700 rounded-lg px-4 py-2.5 text-white placeholder-neutral-500 focus:outline-none focus:border-purple-500 text-sm"
+                  autoFocus
+                />
+                <button
+                  onClick={handleEnter}
+                  className="px-4 py-2.5 bg-purple-600 hover:bg-purple-500 text-white rounded-lg text-sm font-medium transition-colors"
+                >
+                  {selectionInput.question.trim() ? "Ask" : "Explore"}
+                </button>
+                <button
+                  onClick={() => setSelectionInput({ text: "", question: "" })}
+                  className="px-3 py-2.5 text-neutral-500 hover:text-neutral-300 text-sm transition-colors"
+                >
+                  ✕
+                </button>
+              </div>
             </div>
           </motion.div>
         )}
