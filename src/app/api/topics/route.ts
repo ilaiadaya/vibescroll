@@ -246,9 +246,84 @@ function getRandomTopics(): Topic[] {
         { id: "fun5-3", text: "auditory cortex", startIndex: 0, endIndex: 0 },
       ],
     },
+    {
+      id: `fun-${Date.now()}-6`,
+      title: "Octopuses Have 3 Hearts and Blue Blood - Here's Why",
+      summary: "These alien-like creatures evolved completely differently from us, and the results are fascinating.",
+      content: "Octopuses have three hearts: two pump blood to the gills, while the third pumps it to the body. Their blood is blue because it contains copper-based hemocyanin instead of iron-based hemoglobin. This makes oxygen transport more efficient in cold, low-oxygen deep-sea environments. Each of their eight arms has its own 'mini-brain' with about 500 million neurons, allowing independent movement. They can also change color and texture in milliseconds using chromatophores - specialized cells that expand and contract to create patterns.",
+      source: "Marine Biology",
+      sourceUrl: "https://example.com",
+      timestamp: new Date(Date.now() - Math.random() * 1000 * 60 * 60 * 24),
+      category: "science",
+      highlights: [
+        { id: "fun6-1", text: "hemocyanin", startIndex: 0, endIndex: 0 },
+        { id: "fun6-2", text: "chromatophores", startIndex: 0, endIndex: 0 },
+        { id: "fun6-3", text: "mini-brain", startIndex: 0, endIndex: 0 },
+      ],
+    },
+    {
+      id: `fun-${Date.now()}-7`,
+      title: "The McDonald's Ice Cream Machine Conspiracy Is Real",
+      summary: "Why are they always broken? A right-to-repair investigation revealed the surprising answer.",
+      content: "McDonald's ice cream machines are notoriously unreliable, but it's not random bad luck. The machines, made by Taylor, require complex daily heat cycles and frequently display cryptic error codes. Franchisees must call Taylor-authorized technicians for repairs - at $300+ per visit. An investigation revealed Taylor makes more money from repairs than machine sales. A startup called Kytch created a device to let owners diagnose problems themselves, but Taylor and McDonald's allegedly conspired to shut it down. It's now a major right-to-repair lawsuit.",
+      source: "Wired",
+      sourceUrl: "https://example.com",
+      timestamp: new Date(Date.now() - Math.random() * 1000 * 60 * 60 * 24),
+      category: "tech",
+      highlights: [
+        { id: "fun7-1", text: "right-to-repair", startIndex: 0, endIndex: 0 },
+        { id: "fun7-2", text: "Taylor", startIndex: 0, endIndex: 0 },
+        { id: "fun7-3", text: "Kytch", startIndex: 0, endIndex: 0 },
+      ],
+    },
+    {
+      id: `fun-${Date.now()}-8`,
+      title: "Trees Talk to Each Other Through Underground Fungal Networks",
+      summary: "The 'Wood Wide Web' connects forests in ways scientists are only beginning to understand.",
+      content: "Beneath forests lies a vast network of mycorrhizal fungi connecting tree roots - dubbed the 'Wood Wide Web.' Through this network, trees share nutrients, water, and chemical signals. Mother trees send carbon to seedlings in shade. Dying trees dump their resources into the network for neighbors to use. Trees can even warn each other about pest attacks through chemical signals. A single fungal network can span acres and connect hundreds of trees across species. Some scientists believe forests should be viewed as superorganisms rather than collections of individuals.",
+      source: "Nature",
+      sourceUrl: "https://example.com",
+      timestamp: new Date(Date.now() - Math.random() * 1000 * 60 * 60 * 24),
+      category: "science",
+      highlights: [
+        { id: "fun8-1", text: "Wood Wide Web", startIndex: 0, endIndex: 0 },
+        { id: "fun8-2", text: "mycorrhizal fungi", startIndex: 0, endIndex: 0 },
+        { id: "fun8-3", text: "superorganisms", startIndex: 0, endIndex: 0 },
+      ],
+    },
+    {
+      id: `fun-${Date.now()}-9`,
+      title: "Why Do We Have Fingerprints? Scientists Weren't Sure Until Recently",
+      summary: "The answer isn't 'for grip' - it's far more interesting than that.",
+      content: "For decades, scientists assumed fingerprints evolved for better grip. But experiments showed smooth fingers actually have MORE friction on wet surfaces. The real answer? Fingerprints dramatically amplify our sense of touch. The ridges act like a 'biological amplifier,' vibrating against surfaces to activate nerve endings 100 times more effectively than smooth skin. This allows us to detect textures as small as 13 nanometers. Fingerprints also help drain water from our fingertips and may protect against blisters by distributing stress across the skin.",
+      source: "Scientific American",
+      sourceUrl: "https://example.com",
+      timestamp: new Date(Date.now() - Math.random() * 1000 * 60 * 60 * 24),
+      category: "science",
+      highlights: [
+        { id: "fun9-1", text: "biological amplifier", startIndex: 0, endIndex: 0 },
+        { id: "fun9-2", text: "13 nanometers", startIndex: 0, endIndex: 0 },
+        { id: "fun9-3", text: "sense of touch", startIndex: 0, endIndex: 0 },
+      ],
+    },
+    {
+      id: `fun-${Date.now()}-10`,
+      title: "The Weird Reason Bananas Are Radioactive",
+      summary: "You'd need to eat 10 million bananas at once to die from radiation - but the physics is real.",
+      content: "Bananas contain potassium, and about 0.01% of all potassium is the radioactive isotope K-40. This gives bananas a measurable radioactivity of about 15 Bq (becquerels) each. This led to the 'banana equivalent dose' - a unit used to illustrate radiation exposure. Living near a nuclear plant for a year = eating 100 bananas. A chest X-ray = 1,000 bananas. The Fukushima disaster released about 76 million banana equivalents. Your body actually regulates potassium levels tightly, so eating bananas doesn't accumulate radiation - you just excrete the excess.",
+      source: "Physics Today",
+      sourceUrl: "https://example.com",
+      timestamp: new Date(Date.now() - Math.random() * 1000 * 60 * 60 * 24),
+      category: "science",
+      highlights: [
+        { id: "fun10-1", text: "banana equivalent dose", startIndex: 0, endIndex: 0 },
+        { id: "fun10-2", text: "K-40", startIndex: 0, endIndex: 0 },
+        { id: "fun10-3", text: "becquerels", startIndex: 0, endIndex: 0 },
+      ],
+    },
   ];
 
-  // Shuffle and return a subset
+  // Shuffle and return all
   return funTopics.sort(() => Math.random() - 0.5);
 }
 
@@ -359,7 +434,7 @@ function getMockTopics(): Topic[] {
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const count = parseInt(searchParams.get("count") || "3", 10);
-  const offset = parseInt(searchParams.get("offset") || "0", 10);
+  const refresh = searchParams.get("refresh") === "true";
   
   let topics: Topic[];
   let mode: "live" | "demo" = "demo";
@@ -374,40 +449,38 @@ export async function GET(request: Request) {
       console.log("Processing with Claude...");
       topics = await processWithClaude(results);
       console.log(`Claude processed ${topics.length} topics`);
+      mode = "live";
     } else {
       topics = [];
     }
 
-    // Mix in some fun topics for variety
+    // Always mix in fun topics for variety
     const funTopics = getRandomTopics();
-    if (topics.length > 0) {
-      // Insert fun topics every 3rd position
-      funTopics.slice(0, 2).forEach((topic, i) => {
-        const insertAt = Math.min(2 + i * 3, topics.length);
-        topics.splice(insertAt, 0, topic);
-      });
-    } else {
-      // If no API topics, use fun topics
-      topics = funTopics;
-    }
+    topics = [...topics, ...funTopics];
+    
+    // Shuffle to mix real and fun topics
+    topics = topics.sort(() => Math.random() - 0.5);
 
     // Fallback to mock if still empty
     if (topics.length === 0) {
       console.log("No topics from APIs, falling back to mock");
       topics = getMockTopics();
-    } else {
-      mode = "live";
     }
   } else {
     // Use mock data
     console.log("No API keys detected, using mock data");
-    await new Promise((resolve) => setTimeout(resolve, 500));
+    await new Promise((resolve) => setTimeout(resolve, 300));
     topics = getMockTopics();
+    // Shuffle mock topics for variety on each load
+    topics = topics.sort(() => Math.random() - 0.5);
   }
 
-  // Return only the requested slice
-  const slicedTopics = topics.slice(offset, offset + count);
-  const hasMore = offset + count < topics.length;
-
-  return NextResponse.json({ topics: slicedTopics, mode, hasMore });
+  // Return requested count (always has more for infinite scroll)
+  const returnedTopics = topics.slice(0, count);
+  
+  return NextResponse.json({ 
+    topics: returnedTopics, 
+    mode, 
+    hasMore: true // Always indicate more content available
+  });
 }

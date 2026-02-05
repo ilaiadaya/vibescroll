@@ -79,27 +79,31 @@ export function useTopicFeed({ preloadCount = 2 }: UseTopicFeedOptions = {}) {
 
   // Load more topics for infinite scroll
   const loadMoreTopics = useCallback(async () => {
-    if (state.isLoadingMore || !state.hasMore) return;
+    if (state.isLoadingMore) return;
 
     setState((prev) => ({ ...prev, isLoadingMore: true }));
 
     try {
-      const response = await fetch(`/api/topics?count=3&offset=${state.topics.length}`);
+      const response = await fetch("/api/topics?count=3");
       if (!response.ok) throw new Error("Failed to fetch more topics");
       
       const data = await response.json();
       
+      // Filter out duplicates by ID
+      const existingIds = new Set(state.topics.map(t => t.id));
+      const newTopics = data.topics.filter((t: Topic) => !existingIds.has(t.id));
+      
       setState((prev) => ({
         ...prev,
-        topics: [...prev.topics, ...data.topics],
-        hasMore: data.hasMore !== false,
+        topics: [...prev.topics, ...newTopics],
+        hasMore: true, // Always allow more loading
         isLoadingMore: false,
       }));
     } catch (error) {
       console.error("Error loading more topics:", error);
       setState((prev) => ({ ...prev, isLoadingMore: false }));
     }
-  }, [state.isLoadingMore, state.hasMore, state.topics.length]);
+  }, [state.isLoadingMore, state.topics]);
 
   // Build expand URL with topic data
   const buildExpandUrl = useCallback((topic: Topic) => {
@@ -247,10 +251,6 @@ export function useTopicFeed({ preloadCount = 2 }: UseTopicFeedOptions = {}) {
         case "down":
           // Next topic
           if (currentIndex < topics.length - 1) {
-            // Load more when reaching 2nd to last topic
-            if (currentIndex >= topics.length - 2) {
-              loadMoreTopics();
-            }
             return {
               ...prev,
               currentIndex: currentIndex + 1,
@@ -298,7 +298,7 @@ export function useTopicFeed({ preloadCount = 2 }: UseTopicFeedOptions = {}) {
           return prev;
       }
     });
-  }, [state.currentConcept, clearConceptExploration, loadMoreTopics]);
+  }, [state.currentConcept, clearConceptExploration]);
 
   // Expand topic content
   const expandTopic = useCallback(async (topicId: string) => {
@@ -348,6 +348,16 @@ export function useTopicFeed({ preloadCount = 2 }: UseTopicFeedOptions = {}) {
       preloadTopics();
     }
   }, [state.currentIndex, state.topics.length, preloadTopics]);
+
+  // Load more topics when approaching the end (infinite scroll)
+  useEffect(() => {
+    const { topics, currentIndex, hasMore, isLoadingMore } = state;
+    // Load more when reaching 2nd to last topic
+    if (topics.length > 0 && currentIndex >= topics.length - 2 && hasMore && !isLoadingMore) {
+      console.log("Loading more topics...", { currentIndex, total: topics.length });
+      loadMoreTopics();
+    }
+  }, [state.currentIndex, state.topics.length, state.hasMore, state.isLoadingMore, loadMoreTopics]);
 
   // Auto-expand when depth changes
   useEffect(() => {
