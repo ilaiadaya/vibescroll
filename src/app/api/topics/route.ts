@@ -69,22 +69,19 @@ async function fetchFromNewsAPI(): Promise<ValyuResult[]> {
   }
 }
 
-// Content categories with simpler, broader queries for better results
+// Content categories - use very simple single/double word queries
 const CONTENT_CATEGORIES = [
-  // High volume - lots of content (simpler queries work better)
-  { category: "science", queries: ["scientific discovery", "research breakthrough", "new study finds"] },
-  { category: "tech", queries: ["technology news", "artificial intelligence", "startup funding"] },
-  { category: "finance", queries: ["stock market", "cryptocurrency", "economic news"] },
-  { category: "politics", queries: ["political news", "government policy", "election"] },
-  // Medium volume
-  { category: "health", queries: ["medical research", "health news", "mental health"] },
-  { category: "sports", queries: ["sports news", "NBA NFL", "athlete"] },
-  { category: "entertainment", queries: ["movie news", "music release", "celebrity"] },
-  { category: "business", queries: ["business news", "company earnings", "merger acquisition"] },
-  // Lower volume but interesting
-  { category: "space", queries: ["NASA space", "rocket launch", "astronomy"] },
-  { category: "environment", queries: ["climate change", "renewable energy", "wildlife"] },
-  { category: "culture", queries: ["viral trending", "social media", "lifestyle"] },
+  { category: "science", queries: ["science", "research", "discovery"] },
+  { category: "tech", queries: ["AI", "technology", "software"] },
+  { category: "finance", queries: ["stocks", "economy", "markets"] },
+  { category: "politics", queries: ["politics", "congress", "government"] },
+  { category: "health", queries: ["health", "medicine", "doctor"] },
+  { category: "sports", queries: ["sports", "football", "basketball"] },
+  { category: "entertainment", queries: ["movies", "music", "celebrity"] },
+  { category: "business", queries: ["business", "company", "startup"] },
+  { category: "space", queries: ["NASA", "space", "rocket"] },
+  { category: "environment", queries: ["climate", "energy", "environment"] },
+  { category: "culture", queries: ["culture", "trending", "viral"] },
 ];
 
 // Fetch trending topics from Valyu using official SDK
@@ -138,30 +135,31 @@ async function fetchFromValyu(
   // Take 4 categories
   selectedCategories = selectedCategories.slice(0, 4);
 
-  // Sometimes add a time modifier, but not always (can reduce results)
-  const addTimeModifier = Math.random() > 0.5;
-  const timeModifiers = ["2024", "2025", "latest", "recent"];
-  const timeModifier = addTimeModifier ? ` ${timeModifiers[Math.floor(Math.random() * timeModifiers.length)]}` : "";
-  
-  // Location modifier if available (only add sometimes to not over-restrict)
-  const locationModifier = userLocation && Math.random() > 0.7 ? ` ${userLocation}` : "";
+  // Don't add time modifiers - they reduce results too much
+  // Location modifier only for local searches (very rarely)
+  const locationModifier = userLocation && Math.random() > 0.9 ? ` ${userLocation}` : "";
 
   try {
     const categoryPromises = selectedCategories.map(async ({ category, queries }) => {
-      // Pick a random query from this category
+      // Pick a random query from this category - keep it simple
       const baseQuery = queries[Math.floor(Math.random() * queries.length)];
-      const query = `${baseQuery}${timeModifier}${locationModifier}`;
+      const query = `${baseQuery}${locationModifier}`;
       
       try {
+        console.log(`Valyu searching: "${query}"`);
         const response = await valyu.search(query, {
-          maxNumResults: 8,  // Request more results
-          maxPrice: 50,      // Allow higher price for better sources
-          relevanceThreshold: 0.2,  // Lower threshold for more results
+          maxNumResults: 10,  // Request more results
+          maxPrice: 100,      // Allow higher price for better sources
+          relevanceThreshold: 0.1,  // Very low threshold for more results
         });
         
         const count = response.results?.length || 0;
         categoryStats[category] = count;
-        console.log(`Valyu [${category}] "${query.slice(0, 50)}..." → ${count} results`);
+        console.log(`Valyu [${category}] "${query}" → ${count} results`);
+        
+        if (count === 0 && response) {
+          console.log(`Valyu response for "${query}":`, JSON.stringify(response).slice(0, 200));
+        }
         
         return { category, results: response.results || [] };
       } catch (err) {
