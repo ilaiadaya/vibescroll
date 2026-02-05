@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { TopicCard } from "./TopicCard";
 import { NavigationHints } from "./NavigationHints";
@@ -58,6 +58,9 @@ export function TopicFeed() {
     text: "",
     question: "",
   });
+  
+  // Ref for the input to ensure focus
+  const selectionInputRef = useRef<HTMLInputElement>(null);
 
   // Handle question submission (includes selected text context)
   const handleQuestionSubmit = useCallback(async (question: string, selectedTextOverride?: string) => {
@@ -108,6 +111,17 @@ export function TopicFeed() {
       return () => clearTimeout(timer);
     }
   }, [hasSelection, selectedText, selectionInput.text, clearSelection]);
+
+  // Focus input when selection bar appears
+  useEffect(() => {
+    if (selectionInput.text && selectionInputRef.current) {
+      // Small delay to ensure the element is rendered
+      const timer = setTimeout(() => {
+        selectionInputRef.current?.focus();
+      }, 50);
+      return () => clearTimeout(timer);
+    }
+  }, [selectionInput.text]);
 
   // Handle Enter key
   const handleEnter = useCallback(() => {
@@ -199,7 +213,7 @@ export function TopicFeed() {
       {...bind()}
       className="fixed inset-0 bg-black overflow-hidden touch-none"
     >
-      {/* Mode indicator only */}
+      {/* Mode indicator */}
       <div className="fixed top-6 right-6 text-xs z-10">
         {mode === "demo" && (
           <span className="px-2 py-1 bg-yellow-500/20 text-yellow-400 rounded text-[10px] uppercase tracking-wider">
@@ -214,6 +228,22 @@ export function TopicFeed() {
         )}
       </div>
 
+      {/* Selection indicator at TOP - shows what text is selected */}
+      <AnimatePresence>
+        {selectionInput.text && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="fixed top-6 left-1/2 -translate-x-1/2 z-20 px-4 py-2 bg-purple-600/90 backdrop-blur-sm rounded-full text-sm flex items-center gap-2 shadow-lg"
+          >
+            <span className="text-white/70">✨</span>
+            <span className="text-white font-medium truncate max-w-[300px]">
+              "{selectionInput.text}"
+            </span>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Selection input bar - shows at bottom when text is selected */}
       <AnimatePresence>
@@ -225,15 +255,9 @@ export function TopicFeed() {
             className="fixed bottom-0 left-0 right-0 z-30 bg-neutral-900/98 backdrop-blur-md border-t border-purple-500/30 p-4 shadow-2xl"
           >
             <div className="max-w-2xl mx-auto">
-              <div className="flex items-center gap-2 mb-3">
-                <span className="text-purple-400">✨</span>
-                <span className="text-purple-300 text-sm font-medium truncate max-w-[400px]">
-                  {selectionInput.text}
-                </span>
-              </div>
-              
               <div className="flex gap-3">
                 <input
+                  ref={selectionInputRef}
                   type="text"
                   value={selectionInput.question}
                   onChange={(e) => setSelectionInput((prev) => ({ ...prev, question: e.target.value }))}
@@ -245,9 +269,8 @@ export function TopicFeed() {
                       setSelectionInput({ text: "", question: "" });
                     }
                   }}
-                  placeholder="Start typing to ask a question, or just press Enter to explore →"
+                  placeholder="Type a question, or just press Enter to explore..."
                   className="flex-1 bg-neutral-800/80 border border-neutral-700 rounded-lg px-4 py-3 text-white placeholder-neutral-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500/50"
-                  autoFocus
                 />
                 <button
                   onClick={handleEnter}
@@ -266,10 +289,6 @@ export function TopicFeed() {
                   ✕
                 </button>
               </div>
-              
-              <p className="text-neutral-600 text-xs mt-2 text-center">
-                Press <span className="text-neutral-500">Esc</span> to cancel
-              </p>
             </div>
           </motion.div>
         )}
