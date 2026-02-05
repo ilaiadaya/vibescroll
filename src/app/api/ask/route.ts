@@ -1,45 +1,41 @@
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
+import { Valyu } from "valyu-js";
 
 // Check if we have API keys
 const hasValyuKey = !!process.env.VALYU_API_KEY;
 const hasAnthropicKey = !!process.env.ANTHROPIC_API_KEY;
 
-// Initialize Anthropic client if key exists
+// Initialize clients if keys exist
 const anthropic = hasAnthropicKey
   ? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
   : null;
 
-// Search for additional context
+const valyu = hasValyuKey
+  ? new Valyu(process.env.VALYU_API_KEY!)
+  : null;
+
+// Search for additional context using Valyu SDK
 async function searchForContext(question: string): Promise<string> {
-  if (!hasValyuKey) return "";
+  if (!valyu) return "";
 
   try {
-    const response = await fetch("https://api.valyu.ai/v1/search", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${process.env.VALYU_API_KEY}`,
-      },
-      body: JSON.stringify({
-        query: question,
-        maxNumResults: 3,
-        maxPrice: 20,
-        relevanceThreshold: 0.4,
-      }),
+    const response = await valyu.search(question, {
+      maxNumResults: 3,
+      maxPrice: 20,
+      relevanceThreshold: 0.4,
     });
 
-    if (!response.ok) return "";
-
-    const data = await response.json();
-    const results = data.results || [];
+    const results = response.results || [];
 
     return results
-      .map((r: { title: string; content: string }) => 
-        `${r.title}: ${r.content?.slice(0, 500)}`
-      )
+      .map((r) => {
+        const content = typeof r.content === 'string' ? r.content : JSON.stringify(r.content);
+        return `${r.title}: ${content?.slice(0, 500)}`;
+      })
       .join("\n\n");
-  } catch {
+  } catch (err) {
+    console.error("Valyu search error:", err);
     return "";
   }
 }

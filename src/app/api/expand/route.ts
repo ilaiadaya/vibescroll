@@ -38,9 +38,10 @@ async function searchValyu(query: string): Promise<string> {
 
     return results
       .slice(0, 3)
-      .map((r: { title: string; content: string }) => 
-        `${r.title}: ${r.content?.slice(0, 800)}`
-      )
+      .map((r) => {
+        const content = typeof r.content === 'string' ? r.content : JSON.stringify(r.content);
+        return `${r.title}: ${content?.slice(0, 800)}`;
+      })
       .join("\n\n");
   } catch (err) {
     console.error("Valyu search error:", err);

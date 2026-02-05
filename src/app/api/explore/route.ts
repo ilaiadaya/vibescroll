@@ -187,7 +187,10 @@ export async function POST(request: NextRequest) {
     if (searchResults && searchResults.length > 0) {
       searchContext = searchResults
         .slice(0, 3)
-        .map((r: { title: string; content: string }) => `${r.title}: ${r.content?.slice(0, 500)}`)
+        .map((r) => {
+          const content = typeof r.content === 'string' ? r.content : JSON.stringify(r.content);
+          return `${r.title}: ${content?.slice(0, 500)}`;
+        })
         .join("\n\n");
     }
 
