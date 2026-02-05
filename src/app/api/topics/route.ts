@@ -27,9 +27,9 @@ const valyu = hasValyuKey
 interface ValyuResult {
   title: string;
   url: string;
-  content: string;
+  content: string | object | unknown[];
   source: string;
-  relevance_score: number;
+  relevance_score?: number;
   publication_date?: string;
 }
 
@@ -66,7 +66,16 @@ async function fetchFromValyu(): Promise<ValyuResult[]> {
     );
 
     results.forEach((categoryResults) => {
-      allResults.push(...categoryResults);
+      categoryResults.forEach((r) => {
+        allResults.push({
+          title: r.title,
+          url: r.url,
+          content: r.content,
+          source: r.source,
+          relevance_score: r.relevance_score,
+          publication_date: r.publication_date,
+        });
+      });
     });
   } catch (error) {
     console.error("Valyu fetch error:", error);
@@ -90,6 +99,11 @@ async function processWithClaude(results: ValyuResult[]): Promise<Topic[]> {
 
   for (const result of results.slice(0, 10)) {
     try {
+      // Convert content to string if needed
+      const contentStr = typeof result.content === 'string' 
+        ? result.content 
+        : JSON.stringify(result.content);
+      
       const response = await anthropic.messages.create({
         model: "claude-sonnet-4-20250514",
         max_tokens: 1024,
@@ -99,7 +113,7 @@ async function processWithClaude(results: ValyuResult[]): Promise<Topic[]> {
             content: `Analyze this article and provide a JSON response:
 
 Title: ${result.title}
-Content: ${result.content?.slice(0, 3000)}
+Content: ${contentStr?.slice(0, 3000)}
 
 Return ONLY valid JSON:
 {

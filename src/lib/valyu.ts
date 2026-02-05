@@ -4,9 +4,9 @@ import type { TopicCategory } from "@/types";
 interface ValyuSearchResult {
   title: string;
   url: string;
-  content: string;
+  content: string | object | unknown[];
   source: string;
-  relevance_score: number;
+  relevance_score?: number;
   publication_date?: string;
 }
 
