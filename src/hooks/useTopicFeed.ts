@@ -29,6 +29,44 @@ interface TopicFeedState {
   hasMore: boolean;
 }
 
+// LocalStorage keys
+const STORAGE_KEY = "vibescroll_feed_state";
+
+// Save state to localStorage
+function saveToStorage(topics: Topic[], currentIndex: number) {
+  try {
+    const data = {
+      topics,
+      currentIndex,
+      timestamp: Date.now(),
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  } catch (e) {
+    console.error("Failed to save state:", e);
+  }
+}
+
+// Load state from localStorage
+function loadFromStorage(): { topics: Topic[]; currentIndex: number } | null {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (!saved) return null;
+    
+    const data = JSON.parse(saved);
+    // Only use saved state if it's less than 1 hour old
+    const oneHour = 60 * 60 * 1000;
+    if (Date.now() - data.timestamp > oneHour) {
+      localStorage.removeItem(STORAGE_KEY);
+      return null;
+    }
+    
+    return { topics: data.topics, currentIndex: data.currentIndex };
+  } catch (e) {
+    console.error("Failed to load state:", e);
+    return null;
+  }
+}
+
 export function useTopicFeed({ preloadCount = 2 }: UseTopicFeedOptions = {}) {
   const [state, setState] = useState<TopicFeedState>({
     topics: [],
@@ -50,9 +88,28 @@ export function useTopicFeed({ preloadCount = 2 }: UseTopicFeedOptions = {}) {
 
   const preloadedRef = useRef<Set<string>>(new Set());
   const conceptPreloadRef = useRef<Set<string>>(new Set());
+  const initializedRef = useRef(false);
 
-  // Fetch initial topics (3 at a time)
-  const fetchTopics = useCallback(async () => {
+  // Fetch initial topics (3 at a time) or restore from localStorage
+  const fetchTopics = useCallback(async (forceRefresh = false) => {
+    // Try to restore from localStorage first (unless forcing refresh)
+    if (!forceRefresh && !initializedRef.current) {
+      const saved = loadFromStorage();
+      if (saved && saved.topics.length > 0) {
+        console.log("Restoring from localStorage:", saved.currentIndex, "of", saved.topics.length);
+        setState((prev) => ({
+          ...prev,
+          topics: saved.topics,
+          currentIndex: saved.currentIndex,
+          isLoading: false,
+          mode: "live", // Assume live if we had saved state
+        }));
+        initializedRef.current = true;
+        return;
+      }
+    }
+    
+    initializedRef.current = true;
     setState((prev) => ({ ...prev, isLoading: true, error: null }));
 
     try {
@@ -64,10 +121,14 @@ export function useTopicFeed({ preloadCount = 2 }: UseTopicFeedOptions = {}) {
       setState((prev) => ({
         ...prev,
         topics: data.topics,
+        currentIndex: 0,
         mode: data.mode || "demo",
         hasMore: data.hasMore !== false,
         isLoading: false,
       }));
+      
+      // Save to localStorage
+      saveToStorage(data.topics, 0);
     } catch (error) {
       setState((prev) => ({
         ...prev,
@@ -93,12 +154,17 @@ export function useTopicFeed({ preloadCount = 2 }: UseTopicFeedOptions = {}) {
       const existingIds = new Set(state.topics.map(t => t.id));
       const newTopics = data.topics.filter((t: Topic) => !existingIds.has(t.id));
       
-      setState((prev) => ({
-        ...prev,
-        topics: [...prev.topics, ...newTopics],
-        hasMore: true, // Always allow more loading
-        isLoadingMore: false,
-      }));
+      setState((prev) => {
+        const updatedTopics = [...prev.topics, ...newTopics];
+        // Save updated topics to localStorage
+        saveToStorage(updatedTopics, prev.currentIndex);
+        return {
+          ...prev,
+          topics: updatedTopics,
+          hasMore: true,
+          isLoadingMore: false,
+        };
+      });
     } catch (error) {
       console.error("Error loading more topics:", error);
       setState((prev) => ({ ...prev, isLoadingMore: false }));
@@ -251,9 +317,12 @@ export function useTopicFeed({ preloadCount = 2 }: UseTopicFeedOptions = {}) {
         case "down":
           // Next topic
           if (currentIndex < topics.length - 1) {
+            const newIndex = currentIndex + 1;
+            // Save position to localStorage
+            saveToStorage(topics, newIndex);
             return {
               ...prev,
-              currentIndex: currentIndex + 1,
+              currentIndex: newIndex,
               depth: "summary",
               direction: "down",
               currentConcept: null,
@@ -265,9 +334,12 @@ export function useTopicFeed({ preloadCount = 2 }: UseTopicFeedOptions = {}) {
         case "up":
           // Previous topic
           if (currentIndex > 0) {
+            const newIndex = currentIndex - 1;
+            // Save position to localStorage
+            saveToStorage(topics, newIndex);
             return {
               ...prev,
-              currentIndex: currentIndex - 1,
+              currentIndex: newIndex,
               depth: "summary",
               direction: "up",
               currentConcept: null,

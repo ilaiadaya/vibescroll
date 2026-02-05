@@ -191,8 +191,8 @@ export function TopicFeed() {
       {...bind()}
       className="fixed inset-0 bg-black overflow-hidden touch-none"
     >
-      {/* Topic counter and mode indicator */}
-      <div className="fixed top-6 right-6 text-xs text-neutral-600 z-10 flex items-center gap-3">
+      {/* Mode indicator only */}
+      <div className="fixed top-6 right-6 text-xs z-10">
         {mode === "demo" && (
           <span className="px-2 py-1 bg-yellow-500/20 text-yellow-400 rounded text-[10px] uppercase tracking-wider">
             Demo Mode
@@ -204,7 +204,6 @@ export function TopicFeed() {
             Live
           </span>
         )}
-        <span>{currentIndex + 1} / {topics.length}</span>
       </div>
 
       {/* Selection indicator - shows when text is selected but not yet confirmed */}

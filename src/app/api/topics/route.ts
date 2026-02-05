@@ -168,163 +168,99 @@ Include 3-5 highlights - phrases that invite deeper exploration.`,
   return topics;
 }
 
-// Fun/random topics to mix in for variety
-function getRandomTopics(): Topic[] {
-  const funTopics: Topic[] = [
-    {
-      id: `fun-${Date.now()}-1`,
-      title: "Why Do Cats Always Land on Their Feet? The Physics Is Wild",
-      summary: "The 'righting reflex' involves some genuinely impressive mid-air acrobatics that physicists have studied for decades.",
-      content: "Cats have a remarkable ability called the aerial righting reflex that allows them to twist their bodies mid-fall to land on their feet. The physics involves angular momentum conservation - cats bend at the waist, rotating front and back halves independently. They also use their tail as a counterbalance. This reflex develops at 3-4 weeks old and is nearly perfected by 7 weeks. Interestingly, cats falling from higher distances (above 7 stories) often have fewer injuries than those falling from lower heights, because they have time to reach terminal velocity and relax their muscles.",
-      source: "Physics Today",
-      sourceUrl: "https://example.com",
-      timestamp: new Date(Date.now() - Math.random() * 1000 * 60 * 60 * 24),
-      category: "science",
-      highlights: [
-        { id: "fun1-1", text: "aerial righting reflex", startIndex: 0, endIndex: 0 },
-        { id: "fun1-2", text: "angular momentum conservation", startIndex: 0, endIndex: 0 },
-        { id: "fun1-3", text: "terminal velocity", startIndex: 0, endIndex: 0 },
-      ],
-    },
-    {
-      id: `fun-${Date.now()}-2`,
-      title: "The Internet's Obsession With 'Liminal Spaces' Explained",
-      summary: "Empty malls, abandoned pools, and eerily familiar hallways - why do these images feel so unsettling yet captivating?",
-      content: "Liminal spaces are transitional or threshold locations that feel oddly familiar yet deeply unsettling. The term 'liminal' comes from the Latin 'limen' meaning threshold. These spaces - like empty parking lots at night, hotel corridors, or closed shopping malls - trigger a cognitive dissonance because we recognize them but they're missing the human activity that normally defines them. Psychologists suggest they tap into childhood memories and dreams. The aesthetic has exploded online, spawning communities dedicated to finding and sharing these uncanny images.",
-      source: "Internet Culture",
-      sourceUrl: "https://example.com",
-      timestamp: new Date(Date.now() - Math.random() * 1000 * 60 * 60 * 24),
-      category: "culture",
-      highlights: [
-        { id: "fun2-1", text: "liminal spaces", startIndex: 0, endIndex: 0 },
-        { id: "fun2-2", text: "cognitive dissonance", startIndex: 0, endIndex: 0 },
-        { id: "fun2-3", text: "uncanny images", startIndex: 0, endIndex: 0 },
-      ],
-    },
-    {
-      id: `fun-${Date.now()}-3`,
-      title: "Honey Never Spoils: The 3000-Year-Old Snack That's Still Edible",
-      summary: "Archaeologists found honey in Egyptian tombs that was still perfectly preserved. Here's why.",
-      content: "Honey is essentially immortal. Its low moisture content (around 17%) creates an environment where bacteria simply cannot survive. The bees also add an enzyme called glucose oxidase which produces hydrogen peroxide, making honey mildly antiseptic. When archaeologists opened 3000-year-old Egyptian tombs, they found pots of honey that were still edible - a bit crystallized, but perfectly safe. This property made honey valuable as a wound treatment throughout history. Even modern medicine is rediscovering its antibacterial properties for treating burns and ulcers.",
-      source: "Food Science",
-      sourceUrl: "https://example.com",
-      timestamp: new Date(Date.now() - Math.random() * 1000 * 60 * 60 * 24),
-      category: "science",
-      highlights: [
-        { id: "fun3-1", text: "glucose oxidase", startIndex: 0, endIndex: 0 },
-        { id: "fun3-2", text: "hydrogen peroxide", startIndex: 0, endIndex: 0 },
-        { id: "fun3-3", text: "antibacterial properties", startIndex: 0, endIndex: 0 },
-      ],
-    },
-    {
-      id: `fun-${Date.now()}-4`,
-      title: "The Most Successful Pirate in History Was a Woman",
-      summary: "Ching Shih commanded 1,800 ships and 80,000 pirates - and retired comfortably.",
-      content: "Ching Shih terrorized the South China Sea in the early 1800s with a fleet larger than most navies. She started as a prostitute, married a pirate captain, and took over after his death. Her code was strict: disobedience meant beheading, deserters lost their ears, and all loot had to be registered. The Chinese navy, Portuguese navy, AND British navy all failed to defeat her. She eventually negotiated a pardon, kept her wealth, and opened a gambling house. She died peacefully in her bed at 69 - an almost unheard-of ending for a pirate.",
-      source: "History",
-      sourceUrl: "https://example.com",
-      timestamp: new Date(Date.now() - Math.random() * 1000 * 60 * 60 * 24),
-      category: "general",
-      highlights: [
-        { id: "fun4-1", text: "Ching Shih", startIndex: 0, endIndex: 0 },
-        { id: "fun4-2", text: "1,800 ships and 80,000 pirates", startIndex: 0, endIndex: 0 },
-        { id: "fun4-3", text: "negotiated a pardon", startIndex: 0, endIndex: 0 },
-      ],
-    },
-    {
-      id: `fun-${Date.now()}-5`,
-      title: "Why Your Brain Hates That One Song (But Can't Stop Playing It)",
-      summary: "Earworms affect 98% of people. Scientists finally understand why some songs get stuck.",
-      content: "Involuntary musical imagery - aka earworms - happen when your brain's auditory cortex gets stuck in a loop. Research shows songs with simple, repetitive melodies and unexpected intervals are most likely to stick. Your brain treats an unfinished melody like an incomplete task, triggering the Zeigarnik effect - the tendency to remember unfinished things. The cure? Engage in something cognitively demanding, or listen to the full song to 'close the loop.' Interestingly, musicians get more earworms than non-musicians, and people with obsessive tendencies are more susceptible.",
-      source: "Psychology Today",
-      sourceUrl: "https://example.com",
-      timestamp: new Date(Date.now() - Math.random() * 1000 * 60 * 60 * 24),
-      category: "science",
-      highlights: [
-        { id: "fun5-1", text: "Involuntary musical imagery", startIndex: 0, endIndex: 0 },
-        { id: "fun5-2", text: "Zeigarnik effect", startIndex: 0, endIndex: 0 },
-        { id: "fun5-3", text: "auditory cortex", startIndex: 0, endIndex: 0 },
-      ],
-    },
-    {
-      id: `fun-${Date.now()}-6`,
-      title: "Octopuses Have 3 Hearts and Blue Blood - Here's Why",
-      summary: "These alien-like creatures evolved completely differently from us, and the results are fascinating.",
-      content: "Octopuses have three hearts: two pump blood to the gills, while the third pumps it to the body. Their blood is blue because it contains copper-based hemocyanin instead of iron-based hemoglobin. This makes oxygen transport more efficient in cold, low-oxygen deep-sea environments. Each of their eight arms has its own 'mini-brain' with about 500 million neurons, allowing independent movement. They can also change color and texture in milliseconds using chromatophores - specialized cells that expand and contract to create patterns.",
-      source: "Marine Biology",
-      sourceUrl: "https://example.com",
-      timestamp: new Date(Date.now() - Math.random() * 1000 * 60 * 60 * 24),
-      category: "science",
-      highlights: [
-        { id: "fun6-1", text: "hemocyanin", startIndex: 0, endIndex: 0 },
-        { id: "fun6-2", text: "chromatophores", startIndex: 0, endIndex: 0 },
-        { id: "fun6-3", text: "mini-brain", startIndex: 0, endIndex: 0 },
-      ],
-    },
-    {
-      id: `fun-${Date.now()}-7`,
-      title: "The McDonald's Ice Cream Machine Conspiracy Is Real",
-      summary: "Why are they always broken? A right-to-repair investigation revealed the surprising answer.",
-      content: "McDonald's ice cream machines are notoriously unreliable, but it's not random bad luck. The machines, made by Taylor, require complex daily heat cycles and frequently display cryptic error codes. Franchisees must call Taylor-authorized technicians for repairs - at $300+ per visit. An investigation revealed Taylor makes more money from repairs than machine sales. A startup called Kytch created a device to let owners diagnose problems themselves, but Taylor and McDonald's allegedly conspired to shut it down. It's now a major right-to-repair lawsuit.",
-      source: "Wired",
-      sourceUrl: "https://example.com",
-      timestamp: new Date(Date.now() - Math.random() * 1000 * 60 * 60 * 24),
-      category: "tech",
-      highlights: [
-        { id: "fun7-1", text: "right-to-repair", startIndex: 0, endIndex: 0 },
-        { id: "fun7-2", text: "Taylor", startIndex: 0, endIndex: 0 },
-        { id: "fun7-3", text: "Kytch", startIndex: 0, endIndex: 0 },
-      ],
-    },
-    {
-      id: `fun-${Date.now()}-8`,
-      title: "Trees Talk to Each Other Through Underground Fungal Networks",
-      summary: "The 'Wood Wide Web' connects forests in ways scientists are only beginning to understand.",
-      content: "Beneath forests lies a vast network of mycorrhizal fungi connecting tree roots - dubbed the 'Wood Wide Web.' Through this network, trees share nutrients, water, and chemical signals. Mother trees send carbon to seedlings in shade. Dying trees dump their resources into the network for neighbors to use. Trees can even warn each other about pest attacks through chemical signals. A single fungal network can span acres and connect hundreds of trees across species. Some scientists believe forests should be viewed as superorganisms rather than collections of individuals.",
-      source: "Nature",
-      sourceUrl: "https://example.com",
-      timestamp: new Date(Date.now() - Math.random() * 1000 * 60 * 60 * 24),
-      category: "science",
-      highlights: [
-        { id: "fun8-1", text: "Wood Wide Web", startIndex: 0, endIndex: 0 },
-        { id: "fun8-2", text: "mycorrhizal fungi", startIndex: 0, endIndex: 0 },
-        { id: "fun8-3", text: "superorganisms", startIndex: 0, endIndex: 0 },
-      ],
-    },
-    {
-      id: `fun-${Date.now()}-9`,
-      title: "Why Do We Have Fingerprints? Scientists Weren't Sure Until Recently",
-      summary: "The answer isn't 'for grip' - it's far more interesting than that.",
-      content: "For decades, scientists assumed fingerprints evolved for better grip. But experiments showed smooth fingers actually have MORE friction on wet surfaces. The real answer? Fingerprints dramatically amplify our sense of touch. The ridges act like a 'biological amplifier,' vibrating against surfaces to activate nerve endings 100 times more effectively than smooth skin. This allows us to detect textures as small as 13 nanometers. Fingerprints also help drain water from our fingertips and may protect against blisters by distributing stress across the skin.",
-      source: "Scientific American",
-      sourceUrl: "https://example.com",
-      timestamp: new Date(Date.now() - Math.random() * 1000 * 60 * 60 * 24),
-      category: "science",
-      highlights: [
-        { id: "fun9-1", text: "biological amplifier", startIndex: 0, endIndex: 0 },
-        { id: "fun9-2", text: "13 nanometers", startIndex: 0, endIndex: 0 },
-        { id: "fun9-3", text: "sense of touch", startIndex: 0, endIndex: 0 },
-      ],
-    },
-    {
-      id: `fun-${Date.now()}-10`,
-      title: "The Weird Reason Bananas Are Radioactive",
-      summary: "You'd need to eat 10 million bananas at once to die from radiation - but the physics is real.",
-      content: "Bananas contain potassium, and about 0.01% of all potassium is the radioactive isotope K-40. This gives bananas a measurable radioactivity of about 15 Bq (becquerels) each. This led to the 'banana equivalent dose' - a unit used to illustrate radiation exposure. Living near a nuclear plant for a year = eating 100 bananas. A chest X-ray = 1,000 bananas. The Fukushima disaster released about 76 million banana equivalents. Your body actually regulates potassium levels tightly, so eating bananas doesn't accumulate radiation - you just excrete the excess.",
-      source: "Physics Today",
-      sourceUrl: "https://example.com",
-      timestamp: new Date(Date.now() - Math.random() * 1000 * 60 * 60 * 24),
-      category: "science",
-      highlights: [
-        { id: "fun10-1", text: "banana equivalent dose", startIndex: 0, endIndex: 0 },
-        { id: "fun10-2", text: "K-40", startIndex: 0, endIndex: 0 },
-        { id: "fun10-3", text: "becquerels", startIndex: 0, endIndex: 0 },
-      ],
-    },
-  ];
+// Categories for AI-generated topics
+const TOPIC_CATEGORIES = [
+  "fascinating science facts",
+  "weird history stories",
+  "internet culture and memes",
+  "psychology and human behavior",
+  "technology conspiracies",
+  "nature's strangest phenomena",
+  "space and astronomy",
+  "food science",
+  "economics and money",
+  "sports trivia",
+  "art and creativity",
+  "philosophy questions",
+  "health myths debunked",
+  "animal behavior",
+  "music and sound",
+];
 
-  // Shuffle and return all
-  return funTopics.sort(() => Math.random() - 0.5);
+// Generate fresh topics using Claude
+async function generateTopicsWithClaude(count: number = 3): Promise<Topic[]> {
+  if (!anthropic) return [];
+
+  // Pick random categories
+  const shuffled = TOPIC_CATEGORIES.sort(() => Math.random() - 0.5);
+  const selectedCategories = shuffled.slice(0, count);
+
+  try {
+    const response = await anthropic.messages.create({
+      model: "claude-sonnet-4-20250514",
+      max_tokens: 2000,
+      messages: [
+        {
+          role: "user",
+          content: `Generate ${count} fascinating, scroll-worthy topics for a knowledge discovery app. Each topic should be surprising, educational, and make someone want to learn more.
+
+Categories to cover: ${selectedCategories.join(", ")}
+
+Return ONLY valid JSON array:
+[
+  {
+    "title": "compelling clickable title, max 80 chars",
+    "summary": "2-3 sentence hook, max 200 chars",
+    "content": "the full interesting content, 400-600 chars, include surprising facts",
+    "category": "one of: news, tech, science, finance, culture, politics, health, sports, general",
+    "source": "believable source name",
+    "highlights": [
+      {"text": "interesting phrase to explore deeper", "reason": "why fascinating"}
+    ]
+  }
+]
+
+Make each topic genuinely interesting - the kind of thing people share with friends. Include 3-4 highlights per topic.`,
+        },
+      ],
+    });
+
+    const textContent = response.content.find((c) => c.type === "text");
+    if (!textContent || textContent.type !== "text") return [];
+
+    let jsonStr = textContent.text;
+    const jsonMatch = jsonStr.match(/\[[\s\S]*\]/);
+    if (jsonMatch) jsonStr = jsonMatch[0];
+
+    const parsed = JSON.parse(jsonStr);
+
+    return parsed.map((t: { 
+      title: string; 
+      summary: string; 
+      content: string; 
+      category: string; 
+      source: string;
+      highlights: Array<{ text: string }>;
+    }, idx: number) => ({
+      id: `gen-${Date.now()}-${idx}-${Math.random().toString(36).slice(2)}`,
+      title: t.title,
+      summary: t.summary,
+      content: t.content,
+      source: t.source || "Vibescroll",
+      sourceUrl: "https://vibescroll.app",
+      timestamp: new Date(),
+      category: t.category as TopicCategory,
+      highlights: (t.highlights || []).map((h: { text: string }, i: number) => ({
+        id: `gen-${Date.now()}-${idx}-h-${i}`,
+        text: h.text,
+        startIndex: 0,
+        endIndex: 0,
+      })),
+    }));
+  } catch (error) {
+    console.error("Error generating topics with Claude:", error);
+    return [];
+  }
 }
 
 // Mock data for when APIs aren't available
@@ -417,70 +353,62 @@ function getMockTopics(): Topic[] {
     },
   ];
 
-  // Mix serious topics with fun random ones
-  const funTopics = getRandomTopics();
-  const mixed = [...seriousTopics];
-  
-  // Insert 2-3 fun topics randomly throughout
-  const funToAdd = funTopics.slice(0, 2 + Math.floor(Math.random() * 2));
-  funToAdd.forEach((topic, i) => {
-    const insertAt = Math.min(3 + i * 2, mixed.length);
-    mixed.splice(insertAt, 0, topic);
-  });
-
-  return mixed;
+  // Shuffle and return
+  return seriousTopics.sort(() => Math.random() - 0.5);
 }
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const count = parseInt(searchParams.get("count") || "3", 10);
-  const refresh = searchParams.get("refresh") === "true";
   
-  let topics: Topic[];
+  let topics: Topic[] = [];
   let mode: "live" | "demo" = "demo";
 
   if (hasValyuKey && hasAnthropicKey) {
-    // Use real APIs
+    mode = "live";
+    
+    // Try to get news from Valyu first
     console.log("Attempting to fetch from Valyu...");
     const results = await fetchFromValyu();
     console.log(`Valyu returned ${results.length} results`);
     
     if (results.length > 0) {
-      console.log("Processing with Claude...");
-      topics = await processWithClaude(results);
-      console.log(`Claude processed ${topics.length} topics`);
-      mode = "live";
-    } else {
-      topics = [];
+      console.log("Processing news with Claude...");
+      const newsTopics = await processWithClaude(results);
+      topics.push(...newsTopics);
     }
 
-    // Always mix in fun topics for variety
-    const funTopics = getRandomTopics();
-    topics = [...topics, ...funTopics];
+    // Generate additional AI topics to fill the count
+    const neededCount = Math.max(0, count - topics.length);
+    if (neededCount > 0 || topics.length === 0) {
+      console.log(`Generating ${neededCount || count} AI topics...`);
+      const aiTopics = await generateTopicsWithClaude(neededCount || count);
+      topics.push(...aiTopics);
+    }
     
-    // Shuffle to mix real and fun topics
+    // Shuffle to mix news and AI-generated topics
     topics = topics.sort(() => Math.random() - 0.5);
 
     // Fallback to mock if still empty
     if (topics.length === 0) {
       console.log("No topics from APIs, falling back to mock");
       topics = getMockTopics();
+      mode = "demo";
     }
   } else {
     // Use mock data
     console.log("No API keys detected, using mock data");
     await new Promise((resolve) => setTimeout(resolve, 300));
     topics = getMockTopics();
-    // Shuffle mock topics for variety on each load
     topics = topics.sort(() => Math.random() - 0.5);
   }
 
-  // Return requested count (always has more for infinite scroll)
+  // Return requested count
   const returnedTopics = topics.slice(0, count);
   
   return NextResponse.json({ 
     topics: returnedTopics, 
     mode, 
-    hasMore: true // Always indicate more content available
+    hasMore: true
   });
 }
