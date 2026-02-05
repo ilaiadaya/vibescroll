@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { TopicCard } from "./TopicCard";
 import { NavigationHints } from "./NavigationHints";
@@ -97,13 +97,21 @@ export function TopicFeed() {
     }
   }, [currentTopic, questionState.selectedText, selectionInput.text]);
 
+  // Auto-show input bar when text is selected
+  useEffect(() => {
+    if (hasSelection && selectedText && selectedText.length > 2 && !selectionInput.text) {
+      // Show input bar immediately when text is selected
+      const timer = setTimeout(() => {
+        setSelectionInput({ text: selectedText, question: "" });
+        clearSelection();
+      }, 150); // Small delay to let selection complete
+      return () => clearTimeout(timer);
+    }
+  }, [hasSelection, selectedText, selectionInput.text, clearSelection]);
+
   // Handle Enter key
   const handleEnter = useCallback(() => {
-    if (hasSelection && selectedText) {
-      // Show selection input at bottom
-      setSelectionInput({ text: selectedText, question: "" });
-      clearSelection();
-    } else if (selectionInput.text) {
+    if (selectionInput.text) {
       // Selection input is active
       if (selectionInput.question.trim()) {
         // User typed a question - ask about the selected text
@@ -119,7 +127,7 @@ export function TopicFeed() {
       // Default: go deeper (same as right arrow)
       navigate("right");
     }
-  }, [hasSelection, selectedText, exploreConcept, clearSelection, navigate, selectionInput, handleQuestionSubmit]);
+  }, [exploreConcept, navigate, selectionInput, handleQuestionSubmit]);
 
   // Handle keyboard navigation
   useKeyboardNavigation({
@@ -206,39 +214,21 @@ export function TopicFeed() {
         )}
       </div>
 
-      {/* Selection indicator - shows when text is selected but not yet confirmed */}
-      <AnimatePresence>
-        {hasSelection && !selectionInput.text && (
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            className="fixed top-6 left-1/2 -translate-x-1/2 z-20 px-4 py-2 bg-purple-600/90 rounded-full text-sm flex items-center gap-2"
-          >
-            <span className="text-white/80">Press</span>
-            <span className="bg-white/20 px-2 py-0.5 rounded text-xs font-mono">↵</span>
-            <span className="text-white font-medium truncate max-w-[200px]">
-              "{selectedText}"
-            </span>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
-      {/* Selection input bar - shows at bottom after pressing Enter on selection */}
+      {/* Selection input bar - shows at bottom when text is selected */}
       <AnimatePresence>
         {selectionInput.text && (
           <motion.div
             initial={{ opacity: 0, y: 50 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 50 }}
-            className="fixed bottom-0 left-0 right-0 z-30 bg-neutral-900/95 backdrop-blur-sm border-t border-neutral-800 p-4"
+            className="fixed bottom-0 left-0 right-0 z-30 bg-neutral-900/98 backdrop-blur-md border-t border-purple-500/30 p-4 shadow-2xl"
           >
             <div className="max-w-2xl mx-auto">
               <div className="flex items-center gap-2 mb-3">
-                <span className="text-purple-400 text-sm">📝</span>
-                <span className="text-neutral-400 text-sm">Selected:</span>
-                <span className="text-white text-sm font-medium truncate max-w-[300px]">
-                  "{selectionInput.text}"
+                <span className="text-purple-400">✨</span>
+                <span className="text-purple-300 text-sm font-medium truncate max-w-[400px]">
+                  {selectionInput.text}
                 </span>
               </div>
               
@@ -255,23 +245,31 @@ export function TopicFeed() {
                       setSelectionInput({ text: "", question: "" });
                     }
                   }}
-                  placeholder="Type a question or press Enter to explore..."
-                  className="flex-1 bg-neutral-800 border border-neutral-700 rounded-lg px-4 py-2.5 text-white placeholder-neutral-500 focus:outline-none focus:border-purple-500 text-sm"
+                  placeholder="Start typing to ask a question, or just press Enter to explore →"
+                  className="flex-1 bg-neutral-800/80 border border-neutral-700 rounded-lg px-4 py-3 text-white placeholder-neutral-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500/50"
                   autoFocus
                 />
                 <button
                   onClick={handleEnter}
-                  className="px-4 py-2.5 bg-purple-600 hover:bg-purple-500 text-white rounded-lg text-sm font-medium transition-colors"
+                  className="px-5 py-3 bg-purple-600 hover:bg-purple-500 text-white rounded-lg font-medium transition-colors flex items-center gap-2"
                 >
-                  {selectionInput.question.trim() ? "Ask" : "Explore"}
+                  {selectionInput.question.trim() ? (
+                    <>Ask</>
+                  ) : (
+                    <>Explore <span className="opacity-60">↵</span></>
+                  )}
                 </button>
                 <button
                   onClick={() => setSelectionInput({ text: "", question: "" })}
-                  className="px-3 py-2.5 text-neutral-500 hover:text-neutral-300 text-sm transition-colors"
+                  className="px-3 py-3 text-neutral-500 hover:text-neutral-300 transition-colors"
                 >
                   ✕
                 </button>
               </div>
+              
+              <p className="text-neutral-600 text-xs mt-2 text-center">
+                Press <span className="text-neutral-500">Esc</span> to cancel
+              </p>
             </div>
           </motion.div>
         )}

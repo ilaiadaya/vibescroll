@@ -113,7 +113,7 @@ export function useTopicFeed({ preloadCount = 2 }: UseTopicFeedOptions = {}) {
     setState((prev) => ({ ...prev, isLoading: true, error: null }));
 
     try {
-      const response = await fetch("/api/topics?count=3");
+      const response = await fetch("/api/topics?count=5");
       if (!response.ok) throw new Error("Failed to fetch topics");
       
       const data = await response.json();
@@ -145,14 +145,22 @@ export function useTopicFeed({ preloadCount = 2 }: UseTopicFeedOptions = {}) {
     setState((prev) => ({ ...prev, isLoadingMore: true }));
 
     try {
-      const response = await fetch("/api/topics?count=3");
+      // Fetch 5 more topics
+      const response = await fetch("/api/topics?count=5");
       if (!response.ok) throw new Error("Failed to fetch more topics");
       
       const data = await response.json();
       
-      // Filter out duplicates by ID
+      // Filter out duplicates by ID and title similarity
       const existingIds = new Set(state.topics.map(t => t.id));
-      const newTopics = data.topics.filter((t: Topic) => !existingIds.has(t.id));
+      const existingTitles = new Set(state.topics.map(t => t.title.toLowerCase().slice(0, 30)));
+      const newTopics = data.topics.filter((t: Topic) => {
+        if (existingIds.has(t.id)) return false;
+        if (existingTitles.has(t.title.toLowerCase().slice(0, 30))) return false;
+        return true;
+      });
+      
+      console.log(`Adding ${newTopics.length} new topics (filtered from ${data.topics.length})`);
       
       setState((prev) => {
         const updatedTopics = [...prev.topics, ...newTopics];
@@ -424,9 +432,10 @@ export function useTopicFeed({ preloadCount = 2 }: UseTopicFeedOptions = {}) {
   // Load more topics when approaching the end (infinite scroll)
   useEffect(() => {
     const { topics, currentIndex, hasMore, isLoadingMore } = state;
-    // Load more when reaching 2nd to last topic
-    if (topics.length > 0 && currentIndex >= topics.length - 2 && hasMore && !isLoadingMore) {
-      console.log("Loading more topics...", { currentIndex, total: topics.length });
+    // Load more when within 3 topics of the end
+    const threshold = 3;
+    if (topics.length > 0 && currentIndex >= topics.length - threshold && hasMore && !isLoadingMore) {
+      console.log("Loading more topics...", { currentIndex, total: topics.length, threshold });
       loadMoreTopics();
     }
   }, [state.currentIndex, state.topics.length, state.hasMore, state.isLoadingMore, loadMoreTopics]);
