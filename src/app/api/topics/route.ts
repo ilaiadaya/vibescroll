@@ -418,9 +418,14 @@ function getMockTopics(): Topic[] {
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const count = parseInt(searchParams.get("count") || "5", 10);
+  const fresh = searchParams.get("fresh") === "true"; // Get freshest content
+  const preferCategoriesParam = searchParams.get("preferCategories") || "";
+  const preferCategories = preferCategoriesParam ? preferCategoriesParam.split(",") : [];
   // URLs to exclude (passed from frontend to avoid repeats)
   const excludeUrlsParam = searchParams.get("excludeUrls") || "";
   const excludeUrls = excludeUrlsParam ? excludeUrlsParam.split(",") : [];
+  
+  console.log("Topics API request:", { count, fresh, preferCategories: preferCategories.length, excludeUrls: excludeUrls.length });
   
   let realTopics: Topic[] = [];
   let aiTopics: Topic[] = [];
@@ -430,10 +435,9 @@ export async function GET(request: Request) {
 
   // Step 1: Try Valyu for real content (with category rotation)
   if (hasValyuKey) {
-    console.log("Fetching real content from Valyu with category rotation...");
+    console.log("Fetching real content from Valyu...");
     const valyuData = await fetchFromValyu(excludeUrls);
     console.log(`Valyu returned ${valyuData.results.length} results`);
-    console.log("Category stats:", valyuData.categoryStats);
     allResults.push(...valyuData.results);
     categoryStats = valyuData.categoryStats;
   }

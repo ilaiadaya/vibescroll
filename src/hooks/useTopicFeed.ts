@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef } from "react";
-import type { Topic, ViewDepth, TopicHighlight, SwipeDirection } from "@/types";
+import type { Topic, ViewDepth, TopicHighlight, SwipeDirection, TopicCategory } from "@/types";
 
 interface UseTopicFeedOptions {
   preloadCount?: number;
@@ -27,10 +27,22 @@ interface TopicFeedState {
   mode: "live" | "demo";
   // Infinite scroll
   hasMore: boolean;
+  // Liked topics
+  likedTopicIds: Set<string>;
 }
 
 // LocalStorage keys
 const STORAGE_KEY = "vibescroll_feed_state";
+const SHOWN_KEY = "vibescroll_shown_urls";
+const LIKES_KEY = "vibescroll_likes";
+const PREFERENCES_KEY = "vibescroll_preferences";
+
+// Preference tracking
+interface UserPreferences {
+  likedCategories: Record<TopicCategory, number>;
+  likedKeywords: Record<string, number>;
+  totalLikes: number;
+}
 
 // Save state to localStorage
 function saveToStorage(topics: Topic[], currentIndex: number) {
@@ -67,6 +79,99 @@ function loadFromStorage(): { topics: Topic[]; currentIndex: number } | null {
   }
 }
 
+// Get shown URLs from localStorage
+function getShownUrls(): Set<string> {
+  try {
+    const saved = localStorage.getItem(SHOWN_KEY);
+    if (!saved) return new Set();
+    const data = JSON.parse(saved);
+    // Clear if older than 24 hours
+    if (Date.now() - data.timestamp > 24 * 60 * 60 * 1000) {
+      localStorage.removeItem(SHOWN_KEY);
+      return new Set();
+    }
+    return new Set(data.urls);
+  } catch {
+    return new Set();
+  }
+}
+
+// Save shown URLs to localStorage
+function saveShownUrls(urls: Set<string>) {
+  try {
+    localStorage.setItem(SHOWN_KEY, JSON.stringify({
+      urls: Array.from(urls).slice(-200), // Keep last 200
+      timestamp: Date.now(),
+    }));
+  } catch (e) {
+    console.error("Failed to save shown URLs:", e);
+  }
+}
+
+// Get liked topic IDs
+function getLikedIds(): Set<string> {
+  try {
+    const saved = localStorage.getItem(LIKES_KEY);
+    if (!saved) return new Set();
+    return new Set(JSON.parse(saved));
+  } catch {
+    return new Set();
+  }
+}
+
+// Save liked IDs
+function saveLikedIds(ids: Set<string>) {
+  try {
+    localStorage.setItem(LIKES_KEY, JSON.stringify(Array.from(ids)));
+  } catch (e) {
+    console.error("Failed to save likes:", e);
+  }
+}
+
+// Get user preferences
+function getPreferences(): UserPreferences {
+  try {
+    const saved = localStorage.getItem(PREFERENCES_KEY);
+    if (!saved) return { likedCategories: {} as Record<TopicCategory, number>, likedKeywords: {}, totalLikes: 0 };
+    return JSON.parse(saved);
+  } catch {
+    return { likedCategories: {} as Record<TopicCategory, number>, likedKeywords: {}, totalLikes: 0 };
+  }
+}
+
+// Save preferences
+function savePreferences(prefs: UserPreferences) {
+  try {
+    localStorage.setItem(PREFERENCES_KEY, JSON.stringify(prefs));
+  } catch (e) {
+    console.error("Failed to save preferences:", e);
+  }
+}
+
+// Update preferences when a topic is liked
+function updatePreferencesForLike(topic: Topic, prefs: UserPreferences): UserPreferences {
+  const newPrefs = { ...prefs };
+  
+  // Increment category preference
+  newPrefs.likedCategories[topic.category] = (newPrefs.likedCategories[topic.category] || 0) + 1;
+  
+  // Extract keywords from title and add to preferences
+  const keywords = topic.title.toLowerCase().split(/\s+/).filter(w => w.length > 4);
+  keywords.forEach(kw => {
+    newPrefs.likedKeywords[kw] = (newPrefs.likedKeywords[kw] || 0) + 1;
+  });
+  
+  // Also add highlighted terms as strong signals
+  topic.highlights.forEach(h => {
+    const key = h.text.toLowerCase();
+    newPrefs.likedKeywords[key] = (newPrefs.likedKeywords[key] || 0) + 3;
+  });
+  
+  newPrefs.totalLikes++;
+  
+  return newPrefs;
+}
+
 export function useTopicFeed({ preloadCount = 2 }: UseTopicFeedOptions = {}) {
   const [state, setState] = useState<TopicFeedState>({
     topics: [],
@@ -84,14 +189,44 @@ export function useTopicFeed({ preloadCount = 2 }: UseTopicFeedOptions = {}) {
     conceptCache: {},
     mode: "demo",
     hasMore: true,
+    likedTopicIds: new Set(),
   });
 
   const preloadedRef = useRef<Set<string>>(new Set());
   const conceptPreloadRef = useRef<Set<string>>(new Set());
   const initializedRef = useRef(false);
   const seenUrlsRef = useRef<Set<string>>(new Set()); // Track seen URLs to avoid repeats
+  const preferencesRef = useRef<UserPreferences>(getPreferences());
+  
+  // Initialize liked IDs from localStorage
+  useEffect(() => {
+    const likedIds = getLikedIds();
+    const shownUrls = getShownUrls();
+    seenUrlsRef.current = shownUrls;
+    setState(prev => ({ ...prev, likedTopicIds: likedIds }));
+  }, []);
 
-  // Fetch initial topics (3 at a time) or restore from localStorage
+  // Like a topic
+  const likeTopic = useCallback((topicId: string) => {
+    const topic = state.topics.find(t => t.id === topicId);
+    if (!topic) return;
+    
+    setState(prev => {
+      const newLikedIds = new Set(prev.likedTopicIds);
+      if (newLikedIds.has(topicId)) {
+        newLikedIds.delete(topicId); // Unlike
+      } else {
+        newLikedIds.add(topicId); // Like
+        // Update preferences
+        preferencesRef.current = updatePreferencesForLike(topic, preferencesRef.current);
+        savePreferences(preferencesRef.current);
+      }
+      saveLikedIds(newLikedIds);
+      return { ...prev, likedTopicIds: newLikedIds };
+    });
+  }, [state.topics]);
+
+  // Fetch initial topics or restore from localStorage
   const fetchTopics = useCallback(async (forceRefresh = false) => {
     // Try to restore from localStorage first (unless forcing refresh)
     if (!forceRefresh && !initializedRef.current) {
@@ -103,7 +238,7 @@ export function useTopicFeed({ preloadCount = 2 }: UseTopicFeedOptions = {}) {
           topics: saved.topics,
           currentIndex: saved.currentIndex,
           isLoading: false,
-          mode: "live", // Assume live if we had saved state
+          mode: "live",
         }));
         initializedRef.current = true;
         return;
@@ -114,15 +249,36 @@ export function useTopicFeed({ preloadCount = 2 }: UseTopicFeedOptions = {}) {
     setState((prev) => ({ ...prev, isLoading: true, error: null }));
 
     try {
-      const response = await fetch("/api/topics?count=5");
+      // Pass shown URLs to exclude and preferences for personalization
+      const excludeUrls = Array.from(seenUrlsRef.current).slice(-100);
+      const prefs = preferencesRef.current;
+      const topCategories = Object.entries(prefs.likedCategories)
+        .sort(([,a], [,b]) => b - a)
+        .slice(0, 3)
+        .map(([cat]) => cat);
+      
+      const params = new URLSearchParams({
+        count: "5",
+        fresh: "true", // Signal to get freshest content
+      });
+      if (excludeUrls.length > 0) {
+        params.set("excludeUrls", excludeUrls.join(","));
+      }
+      if (topCategories.length > 0) {
+        params.set("preferCategories", topCategories.join(","));
+      }
+      
+      const response = await fetch(`/api/topics?${params.toString()}`);
       if (!response.ok) throw new Error("Failed to fetch topics");
       
       const data = await response.json();
+      console.log("Fetched topics:", data.topics.length, "AI:", data.aiCount, "Mode:", data.mode);
       
       // Track seen URLs
       data.topics.forEach((t: Topic) => {
         if (t.sourceUrl) seenUrlsRef.current.add(t.sourceUrl);
       });
+      saveShownUrls(seenUrlsRef.current);
       
       setState((prev) => ({
         ...prev,
@@ -148,18 +304,31 @@ export function useTopicFeed({ preloadCount = 2 }: UseTopicFeedOptions = {}) {
   const loadMoreTopics = useCallback(async () => {
     if (state.isLoadingMore) return;
 
+    console.log("Loading more topics... Current:", state.currentIndex, "Total:", state.topics.length);
     setState((prev) => ({ ...prev, isLoadingMore: true }));
 
     try {
-      // Pass seen URLs to avoid repeats
-      const excludeUrls = Array.from(seenUrlsRef.current).slice(-50); // Last 50 URLs
-      const excludeParam = excludeUrls.length > 0 ? `&excludeUrls=${encodeURIComponent(excludeUrls.join(","))}` : "";
+      // Pass shown URLs to avoid repeats and preferences
+      const excludeUrls = Array.from(seenUrlsRef.current).slice(-100);
+      const prefs = preferencesRef.current;
+      const topCategories = Object.entries(prefs.likedCategories)
+        .sort(([,a], [,b]) => b - a)
+        .slice(0, 3)
+        .map(([cat]) => cat);
       
-      // Fetch 5 more topics
-      const response = await fetch(`/api/topics?count=5${excludeParam}`);
+      const params = new URLSearchParams({ count: "5" });
+      if (excludeUrls.length > 0) {
+        params.set("excludeUrls", excludeUrls.join(","));
+      }
+      if (topCategories.length > 0) {
+        params.set("preferCategories", topCategories.join(","));
+      }
+      
+      const response = await fetch(`/api/topics?${params.toString()}`);
       if (!response.ok) throw new Error("Failed to fetch more topics");
       
       const data = await response.json();
+      console.log("Got more topics:", data.topics.length, "AI:", data.aiCount);
       
       // Filter out duplicates by ID and title similarity
       const existingIds = new Set(state.topics.map(t => t.id));
@@ -170,10 +339,11 @@ export function useTopicFeed({ preloadCount = 2 }: UseTopicFeedOptions = {}) {
         return true;
       });
       
-      // Track new URLs
+      // Track new URLs and save
       newTopics.forEach((t: Topic) => {
         if (t.sourceUrl) seenUrlsRef.current.add(t.sourceUrl);
       });
+      saveShownUrls(seenUrlsRef.current);
       
       console.log(`Adding ${newTopics.length} new topics (filtered from ${data.topics.length})`);
       if (data.aiCount > 0) {
@@ -474,6 +644,7 @@ export function useTopicFeed({ preloadCount = 2 }: UseTopicFeedOptions = {}) {
     currentIndex: state.currentIndex,
     depth: state.depth,
     isLoading: state.isLoading,
+    isLoadingMore: state.isLoadingMore,
     error: state.error,
     expandedContent: currentTopic ? state.expandedContent[currentTopic.id] : undefined,
     detailContent: currentTopic ? state.detailContent[currentTopic.id] : undefined,
@@ -481,7 +652,7 @@ export function useTopicFeed({ preloadCount = 2 }: UseTopicFeedOptions = {}) {
     navigate,
     handleHighlightClick,
     resetDepth,
-    refetch: fetchTopics,
+    refetch: () => fetchTopics(true), // Force refresh
     // Concept exploration
     exploreConcept,
     conceptContent: state.conceptContent,
@@ -490,5 +661,8 @@ export function useTopicFeed({ preloadCount = 2 }: UseTopicFeedOptions = {}) {
     clearConceptExploration,
     // API mode
     mode: state.mode,
+    // Likes
+    likeTopic,
+    isLiked: (topicId: string) => state.likedTopicIds.has(topicId),
   };
 }
