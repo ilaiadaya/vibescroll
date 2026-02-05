@@ -164,7 +164,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  let content: string;
+  let content: string = "";
 
   if (hasAnthropicKey) {
     // Generate detail with Claude
