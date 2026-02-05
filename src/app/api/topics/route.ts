@@ -69,22 +69,22 @@ async function fetchFromNewsAPI(): Promise<ValyuResult[]> {
   }
 }
 
-// Content categories with high-content sources
+// Content categories with simpler, broader queries for better results
 const CONTENT_CATEGORIES = [
-  // High volume - lots of content
-  { category: "science", queries: ["latest scientific research papers", "science breakthrough discovery today", "new study published findings"] },
-  { category: "tech", queries: ["technology news today", "AI artificial intelligence latest", "startup funding news tech"] },
-  { category: "finance", queries: ["stock market news today", "cryptocurrency bitcoin ethereum news", "economic policy federal reserve"] },
-  { category: "politics", queries: ["political news today", "government policy announcement", "election news update"] },
+  // High volume - lots of content (simpler queries work better)
+  { category: "science", queries: ["scientific discovery", "research breakthrough", "new study finds"] },
+  { category: "tech", queries: ["technology news", "artificial intelligence", "startup funding"] },
+  { category: "finance", queries: ["stock market", "cryptocurrency", "economic news"] },
+  { category: "politics", queries: ["political news", "government policy", "election"] },
   // Medium volume
-  { category: "health", queries: ["health medical news today", "new treatment drug FDA", "mental health wellness research"] },
-  { category: "sports", queries: ["sports news today scores", "NBA NFL MLB latest", "athlete transfer trade news"] },
-  { category: "entertainment", queries: ["entertainment celebrity news", "movie film release news", "music artist album release"] },
-  { category: "business", queries: ["business news companies", "corporate earnings report", "merger acquisition deal"] },
+  { category: "health", queries: ["medical research", "health news", "mental health"] },
+  { category: "sports", queries: ["sports news", "NBA NFL", "athlete"] },
+  { category: "entertainment", queries: ["movie news", "music release", "celebrity"] },
+  { category: "business", queries: ["business news", "company earnings", "merger acquisition"] },
   // Lower volume but interesting
-  { category: "space", queries: ["space NASA astronomy news", "rocket launch satellite", "mars moon exploration"] },
-  { category: "environment", queries: ["climate change environment news", "renewable energy solar wind", "wildlife conservation nature"] },
-  { category: "culture", queries: ["viral trending social media", "internet culture memes", "lifestyle trend society"] },
+  { category: "space", queries: ["NASA space", "rocket launch", "astronomy"] },
+  { category: "environment", queries: ["climate change", "renewable energy", "wildlife"] },
+  { category: "culture", queries: ["viral trending", "social media", "lifestyle"] },
 ];
 
 // Fetch trending topics from Valyu using official SDK
@@ -138,24 +138,25 @@ async function fetchFromValyu(
   // Take 4 categories
   selectedCategories = selectedCategories.slice(0, 4);
 
-  // Time-based modifier for freshness
-  const timeModifiers = ["last hour", "today", "this morning", "breaking"];
-  const timeModifier = timeModifiers[Math.floor(Math.random() * timeModifiers.length)];
+  // Sometimes add a time modifier, but not always (can reduce results)
+  const addTimeModifier = Math.random() > 0.5;
+  const timeModifiers = ["2024", "2025", "latest", "recent"];
+  const timeModifier = addTimeModifier ? ` ${timeModifiers[Math.floor(Math.random() * timeModifiers.length)]}` : "";
   
-  // Location modifier if available
-  const locationModifier = userLocation ? ` ${userLocation}` : "";
+  // Location modifier if available (only add sometimes to not over-restrict)
+  const locationModifier = userLocation && Math.random() > 0.7 ? ` ${userLocation}` : "";
 
   try {
     const categoryPromises = selectedCategories.map(async ({ category, queries }) => {
-      // Pick a random query from this category and add time modifier
+      // Pick a random query from this category
       const baseQuery = queries[Math.floor(Math.random() * queries.length)];
-      const query = `${baseQuery} ${timeModifier}${locationModifier}`;
+      const query = `${baseQuery}${timeModifier}${locationModifier}`;
       
       try {
         const response = await valyu.search(query, {
-          maxNumResults: 5,
-          maxPrice: 30,
-          relevanceThreshold: 0.3,
+          maxNumResults: 8,  // Request more results
+          maxPrice: 50,      // Allow higher price for better sources
+          relevanceThreshold: 0.2,  // Lower threshold for more results
         });
         
         const count = response.results?.length || 0;
