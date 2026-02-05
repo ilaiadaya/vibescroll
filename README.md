@@ -1,36 +1,93 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Vibescroll
+
+A TikTok-style knowledge discovery app that lets you scroll through trending topics, dive deep into concepts, and explore ideas with AI-powered research.
+
+## Features
+
+- **Swipe Navigation**: Arrow keys (↑↓→←) or swipe gestures
+- **Three Depth Levels**: Overview → Full Story → Deep Dive
+- **Concept Exploration**: Select any text and press Enter to research it
+- **Smart Preloading**: Topics and concept explorations cached for instant access
+- **Purple Highlights**: Clickable terms to explore deeper
+
+## Tech Stack
+
+- **Frontend**: Next.js 14, React, Tailwind CSS, Framer Motion
+- **APIs**: Valyu (search), Anthropic Claude (AI synthesis)
+- **Gestures**: @use-gesture/react
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
+
+- Node.js 18+
+- npm or yarn
+
+### Installation
+
+```bash
+# Clone the repo
+git clone <your-repo-url>
+cd vibescroll
+
+# Install dependencies
+npm install
+
+# Set up environment variables
+cp .env.example .env.local
+# Edit .env.local with your API keys
+```
+
+### Environment Variables
+
+Create a `.env.local` file:
+
+```env
+VALYU_API_KEY=your_valyu_api_key
+ANTHROPIC_API_KEY=your_anthropic_api_key
+```
+
+Get your keys:
+- Valyu: https://valyu.ai
+- Anthropic: https://console.anthropic.com
+
+### Development
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000)
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Production Build
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm run build
+npm start
+```
 
-## Learn More
+## Deploy to Railway
 
-To learn more about Next.js, take a look at the following resources:
+1. Push to GitHub
+2. Connect your repo to Railway
+3. Add environment variables in Railway dashboard:
+   - `VALYU_API_KEY`
+   - `ANTHROPIC_API_KEY`
+4. Deploy!
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Railway will automatically detect Next.js and configure the build.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Navigation
 
-## Deploy on Vercel
+| Key | Action |
+|-----|--------|
+| ↓ | Next topic |
+| ↑ | Previous topic |
+| → | Go deeper / expand |
+| ← | Go back / collapse |
+| Enter | Explore selected text |
+| Esc | Close overlays |
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## License
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+MIT
