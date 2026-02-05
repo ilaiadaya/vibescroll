@@ -257,6 +257,19 @@ export function useTopicFeed({ preloadCount = 2 }: UseTopicFeedOptions = {}) {
         .slice(0, 3)
         .map(([cat]) => cat);
       
+      // Get user-defined interests from localStorage
+      let userInterests: string[] = [];
+      let userLocation = "";
+      let customPrompt = "";
+      try {
+        const savedTags = localStorage.getItem("vibescroll_interest_tags");
+        if (savedTags) userInterests = JSON.parse(savedTags);
+        userLocation = localStorage.getItem("vibescroll_location") || "";
+        customPrompt = localStorage.getItem("vibescroll_custom_prompt") || "";
+      } catch (e) {
+        console.error("Failed to load user interests:", e);
+      }
+      
       const params = new URLSearchParams({
         count: "5",
         fresh: "true", // Signal to get freshest content
@@ -266,6 +279,15 @@ export function useTopicFeed({ preloadCount = 2 }: UseTopicFeedOptions = {}) {
       }
       if (topCategories.length > 0) {
         params.set("preferCategories", topCategories.join(","));
+      }
+      if (userInterests.length > 0) {
+        params.set("interests", userInterests.join(","));
+      }
+      if (userLocation) {
+        params.set("location", userLocation);
+      }
+      if (customPrompt) {
+        params.set("aboutUser", customPrompt.slice(0, 500)); // Limit size
       }
       
       const response = await fetch(`/api/topics?${params.toString()}`);

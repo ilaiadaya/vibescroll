@@ -54,9 +54,9 @@ export function TopicCard({
         duration: 0.4, 
         ease: [0.25, 0.1, 0.25, 1] 
       }}
-      className="absolute inset-0 flex flex-col justify-center px-6 md:px-16 lg:px-24"
+      className="absolute inset-0 flex flex-col justify-center px-6 md:px-16 lg:px-24 overflow-y-auto"
     >
-      <div className="max-w-3xl mx-auto w-full">
+      <div className="max-w-3xl mx-auto w-full py-16">
         {/* Category & Timestamp */}
         <div className="flex items-center gap-4 mb-4">
           <span className={`text-xs uppercase tracking-widest ${categoryColors[topic.category] || "text-neutral-400"}`}>

@@ -7,6 +7,7 @@ import { NavigationHints } from "./NavigationHints";
 import { LoadingState } from "./LoadingState";
 import { QuestionOverlay } from "./QuestionOverlay";
 import { ConceptExplorer } from "./ConceptExplorer";
+import { InterestsPanel } from "./InterestsPanel";
 import { useTopicFeed } from "@/hooks/useTopicFeed";
 import { useKeyboardNavigation } from "@/hooks/useKeyboardNavigation";
 import { useSwipeGestures } from "@/hooks/useSwipeGestures";
@@ -65,6 +66,9 @@ export function TopicFeed() {
   
   // Ref for the input to ensure focus
   const selectionInputRef = useRef<HTMLInputElement>(null);
+  
+  // Interests panel state
+  const [showInterests, setShowInterests] = useState(false);
 
   // Handle question submission (includes selected text context)
   const handleQuestionSubmit = useCallback(async (question: string, selectedTextOverride?: string) => {
@@ -133,24 +137,36 @@ export function TopicFeed() {
       // Selection input is active - always use explore view
       const question = selectionInput.question.trim() || undefined;
       exploreConcept(selectionInput.text, question);
-      setSelectionInput({ text: "", question: "" });
+      // DON'T clear selectionInput.text here - keep it for the purple indicator at top
+      // Only clear the question input
+      setSelectionInput(prev => ({ ...prev, question: "" }));
     } else {
       // Default: go deeper (same as right arrow)
       navigate("right");
     }
   }, [exploreConcept, navigate, selectionInput]);
 
+  // Handle closing explore - also clears selection
+  const handleCloseExplore = useCallback(() => {
+    clearConceptExploration();
+    setSelectionInput({ text: "", question: "" }); // Clear selection when closing explore
+  }, [clearConceptExploration]);
+
   // Handle keyboard navigation
   useKeyboardNavigation({
     onNavigate: navigate,
     onEnter: handleEnter,
     onEscape: () => {
-      if (selectionInput.text) {
+      if (showInterests) {
+        setShowInterests(false);
+      } else if (currentConcept) {
+        // Close explore and clear selection
+        handleCloseExplore();
+      } else if (selectionInput.text && !currentConcept) {
+        // Only clear selection if not in explore mode
         setSelectionInput({ text: "", question: "" });
       } else if (questionState.isOpen) {
         setQuestionState({ isOpen: false, isLoading: false });
-      } else if (currentConcept) {
-        clearConceptExploration();
       } else {
         resetDepth();
       }
@@ -355,8 +371,30 @@ export function TopicFeed() {
         concept={currentConcept || ""}
         content={conceptContent}
         isLoading={isExploringConcept}
-        onClose={clearConceptExploration}
+        onClose={handleCloseExplore}
       />
+
+      {/* Interests Panel */}
+      <InterestsPanel
+        isOpen={showInterests}
+        onClose={() => setShowInterests(false)}
+      />
+
+      {/* Interests button - left side */}
+      <button
+        onClick={() => setShowInterests(true)}
+        className="fixed top-6 left-6 z-10 p-2 hover:bg-white/10 rounded-full transition-colors group"
+        title="Your Interests"
+      >
+        <svg 
+          className="w-5 h-5 text-white/50 group-hover:text-purple-400 transition-colors"
+          fill="none" 
+          stroke="currentColor" 
+          viewBox="0 0 24 24"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+        </svg>
+      </button>
 
       {/* Navigation hints */}
       <NavigationHints />

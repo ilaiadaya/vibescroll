@@ -15,8 +15,9 @@ const path = require("path");
 
 // Register test files here
 const testFiles = [
-  "navigation.test.ts",  // Navigation logic tests (arrow keys, depth transitions)
-  "api.test.ts",         // API response structure and preloading tests
+  "navigation.test.ts",    // Navigation logic tests (arrow keys, depth transitions)
+  "api.test.ts",           // API response structure and preloading tests
+  "interests-panel.test.ts", // User preferences and interests localStorage tests
 ];
 
 console.log("🧪 Vibescroll Test Runner");

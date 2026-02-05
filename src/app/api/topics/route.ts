@@ -88,26 +88,68 @@ const CONTENT_CATEGORIES = [
 ];
 
 // Fetch trending topics from Valyu using official SDK
-async function fetchFromValyu(excludeUrls: string[] = []): Promise<{ results: ValyuResult[], categoryStats: Record<string, number> }> {
+async function fetchFromValyu(
+  excludeUrls: string[] = [],
+  userInterests: string[] = [],
+  userLocation: string = ""
+): Promise<{ results: ValyuResult[], categoryStats: Record<string, number> }> {
   if (!valyu) return { results: [], categoryStats: {} };
 
   const allResults: ValyuResult[] = [];
   const categoryStats: Record<string, number> = {};
   const excludeSet = new Set(excludeUrls);
 
-  // Pick 3-4 random categories to query this time
-  const shuffledCategories = [...CONTENT_CATEGORIES].sort(() => Math.random() - 0.5);
-  const selectedCategories = shuffledCategories.slice(0, 4);
+  // Pick categories - prioritize user interests if provided
+  let selectedCategories = [...CONTENT_CATEGORIES];
+  
+  // Map user interest tags to categories
+  const interestToCategory: Record<string, string[]> = {
+    "AI & Machine Learning": ["tech"],
+    "Space & Astronomy": ["space"],
+    "Science & Research": ["science"],
+    "Technology": ["tech"],
+    "Finance & Economics": ["finance"],
+    "Health & Wellness": ["health"],
+    "Politics": ["politics"],
+    "Sports": ["sports"],
+    "Entertainment": ["entertainment"],
+    "Climate & Environment": ["environment"],
+    "Art & Culture": ["culture"],
+    "Business": ["business"],
+  };
+  
+  // Boost categories matching user interests
+  if (userInterests.length > 0) {
+    const boostedCategories = new Set<string>();
+    userInterests.forEach(interest => {
+      const cats = interestToCategory[interest] || [];
+      cats.forEach(c => boostedCategories.add(c));
+    });
+    
+    // Put boosted categories first
+    selectedCategories = [
+      ...selectedCategories.filter(c => boostedCategories.has(c.category)),
+      ...selectedCategories.filter(c => !boostedCategories.has(c.category)).sort(() => Math.random() - 0.5)
+    ];
+  } else {
+    selectedCategories = selectedCategories.sort(() => Math.random() - 0.5);
+  }
+  
+  // Take 4 categories
+  selectedCategories = selectedCategories.slice(0, 4);
 
   // Time-based modifier for freshness
   const timeModifiers = ["last hour", "today", "this morning", "breaking"];
   const timeModifier = timeModifiers[Math.floor(Math.random() * timeModifiers.length)];
+  
+  // Location modifier if available
+  const locationModifier = userLocation ? ` ${userLocation}` : "";
 
   try {
     const categoryPromises = selectedCategories.map(async ({ category, queries }) => {
       // Pick a random query from this category and add time modifier
       const baseQuery = queries[Math.floor(Math.random() * queries.length)];
-      const query = `${baseQuery} ${timeModifier}`;
+      const query = `${baseQuery} ${timeModifier}${locationModifier}`;
       
       try {
         const response = await valyu.search(query, {
@@ -118,7 +160,7 @@ async function fetchFromValyu(excludeUrls: string[] = []): Promise<{ results: Va
         
         const count = response.results?.length || 0;
         categoryStats[category] = count;
-        console.log(`Valyu [${category}] "${query.slice(0, 40)}..." → ${count} results`);
+        console.log(`Valyu [${category}] "${query.slice(0, 50)}..." → ${count} results`);
         
         return { category, results: response.results || [] };
       } catch (err) {
@@ -424,8 +466,23 @@ export async function GET(request: Request) {
   // URLs to exclude (passed from frontend to avoid repeats)
   const excludeUrlsParam = searchParams.get("excludeUrls") || "";
   const excludeUrls = excludeUrlsParam ? excludeUrlsParam.split(",") : [];
+  // User interests (tags from preferences)
+  const interestsParam = searchParams.get("interests") || "";
+  const userInterests = interestsParam ? interestsParam.split(",") : [];
+  // User location for local news
+  const userLocation = searchParams.get("location") || "";
+  // Custom user prompt (for future use in AI generation)
+  const aboutUser = searchParams.get("aboutUser") || "";
   
-  console.log("Topics API request:", { count, fresh, preferCategories: preferCategories.length, excludeUrls: excludeUrls.length });
+  console.log("Topics API request:", { 
+    count, 
+    fresh, 
+    preferCategories: preferCategories.length, 
+    excludeUrls: excludeUrls.length,
+    userInterests: userInterests.length,
+    userLocation: userLocation || "none",
+    hasAboutUser: !!aboutUser,
+  });
   
   let realTopics: Topic[] = [];
   let aiTopics: Topic[] = [];
@@ -436,7 +493,7 @@ export async function GET(request: Request) {
   // Step 1: Try Valyu for real content (with category rotation)
   if (hasValyuKey) {
     console.log("Fetching real content from Valyu...");
-    const valyuData = await fetchFromValyu(excludeUrls);
+    const valyuData = await fetchFromValyu(excludeUrls, userInterests, userLocation);
     console.log(`Valyu returned ${valyuData.results.length} results`);
     allResults.push(...valyuData.results);
     categoryStats = valyuData.categoryStats;
