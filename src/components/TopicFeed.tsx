@@ -130,22 +130,15 @@ export function TopicFeed() {
   // Handle Enter key
   const handleEnter = useCallback(() => {
     if (selectionInput.text) {
-      // Selection input is active
-      if (selectionInput.question.trim()) {
-        // User typed a question - ask about the selected text
-        handleQuestionSubmit(selectionInput.question);
-        setQuestionState((prev) => ({ ...prev, isOpen: true, selectedText: selectionInput.text }));
-        setSelectionInput({ text: "", question: "" });
-      } else {
-        // No question typed - explore the concept
-        exploreConcept(selectionInput.text);
-        setSelectionInput({ text: "", question: "" });
-      }
+      // Selection input is active - always use explore view
+      const question = selectionInput.question.trim() || undefined;
+      exploreConcept(selectionInput.text, question);
+      setSelectionInput({ text: "", question: "" });
     } else {
       // Default: go deeper (same as right arrow)
       navigate("right");
     }
-  }, [exploreConcept, navigate, selectionInput, handleQuestionSubmit]);
+  }, [exploreConcept, navigate, selectionInput]);
 
   // Handle keyboard navigation
   useKeyboardNavigation({

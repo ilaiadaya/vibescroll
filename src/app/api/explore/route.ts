@@ -65,13 +65,25 @@ function shouldSearch(concept: string): boolean {
 async function explainWithClaude(
   concept: string,
   context?: string,
-  searchResults?: string
+  searchResults?: string,
+  question?: string
 ): Promise<string> {
   if (!anthropic) {
-    return getFallbackExplanation(concept);
+    return getFallbackExplanation(concept, question);
   }
 
-  const systemPrompt = `You are an expert educator who explains concepts clearly and engagingly. 
+  const isQuestion = !!question;
+  
+  const systemPrompt = isQuestion 
+    ? `You are an expert who answers questions clearly and thoroughly.
+Your answers should be:
+- Direct and informative
+- Well-structured with clear sections
+- Include practical examples when helpful
+- About 300-500 words
+
+Format with markdown: use **bold** for key terms, bullet points for lists.`
+    : `You are an expert educator who explains concepts clearly and engagingly. 
 Your explanations should be:
 - Informative but accessible
 - Well-structured with clear sections
@@ -80,7 +92,9 @@ Your explanations should be:
 
 Format with markdown: use **bold** for key terms, bullet points for lists.`;
 
-  let userPrompt = `Explain the concept: "${concept}"`;
+  let userPrompt = isQuestion
+    ? `The user selected this text: "${concept}"\n\nTheir question about it: "${question}"`
+    : `Explain the concept: "${concept}"`;
 
   if (context) {
     userPrompt += `\n\nThis appeared in the context of: ${context.slice(0, 500)}`;
@@ -90,7 +104,9 @@ Format with markdown: use **bold** for key terms, bullet points for lists.`;
     userPrompt += `\n\nHere is recent information to incorporate:\n${searchResults}`;
   }
 
-  userPrompt += `\n\nProvide a clear, comprehensive explanation. Start directly with the explanation, no preamble.`;
+  userPrompt += isQuestion
+    ? `\n\nAnswer the question directly and comprehensively. Start with the answer, no preamble.`
+    : `\n\nProvide a clear, comprehensive explanation. Start directly with the explanation, no preamble.`;
 
   try {
     const response = await anthropic.messages.create({
@@ -111,7 +127,20 @@ Format with markdown: use **bold** for key terms, bullet points for lists.`;
 }
 
 // Fallback explanations for demo mode
-function getFallbackExplanation(concept: string): string {
+function getFallbackExplanation(concept: string, question?: string): string {
+  if (question) {
+    return `# About "${concept}"
+
+**Your question:** ${question}
+
+This question is being processed. In the full version with API keys connected:
+
+1. **Valyu Search** finds relevant information
+2. **Claude** provides a comprehensive answer based on context
+3. **Smart caching** ensures quick responses
+
+Add your API keys to \`.env.local\` to enable live Q&A.`;
+  }
   const mockData: Record<string, string> = {
     "quantum error correction": `**Quantum error correction (QEC)** is a set of techniques to protect quantum information from errors due to decoherence and other quantum noise.
 
@@ -168,20 +197,26 @@ Add your API keys to \`.env.local\` to enable live exploration.`;
 
 export async function POST(request: NextRequest) {
   const body = await request.json();
-  const { concept, topicContext } = body;
+  const { concept, topicContext, question } = body;
 
   if (!concept) {
     return NextResponse.json({ error: "Missing concept" }, { status: 400 });
   }
 
+  console.log("Explore API:", { concept: concept.slice(0, 50), hasQuestion: !!question });
+
   let content: string;
 
   // Decide whether to search or just use Claude
-  const needsSearch = shouldSearch(concept);
+  // Always search if there's a question
+  const needsSearch = question || shouldSearch(concept);
 
   if (hasValyuKey && hasAnthropicKey && needsSearch) {
     // Full pipeline: Search + Claude synthesis
-    const searchResults = await searchValyu(`${concept} explanation overview`);
+    const searchQuery = question 
+      ? `${concept} ${question}`
+      : `${concept} explanation overview`;
+    const searchResults = await searchValyu(searchQuery);
 
     let searchContext = "";
     if (searchResults && searchResults.length > 0) {
@@ -194,14 +229,14 @@ export async function POST(request: NextRequest) {
         .join("\n\n");
     }
 
-    content = await explainWithClaude(concept, topicContext, searchContext);
+    content = await explainWithClaude(concept, topicContext, searchContext, question);
   } else if (hasAnthropicKey) {
     // Just Claude (for common/general concepts)
-    content = await explainWithClaude(concept, topicContext);
+    content = await explainWithClaude(concept, topicContext, undefined, question);
   } else {
     // Fallback to mock data
     await new Promise((resolve) => setTimeout(resolve, 600));
-    content = getFallbackExplanation(concept);
+    content = getFallbackExplanation(concept, question);
   }
 
   return NextResponse.json({ content });

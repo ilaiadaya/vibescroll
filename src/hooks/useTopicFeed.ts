@@ -431,17 +431,22 @@ export function useTopicFeed({ preloadCount = 2 }: UseTopicFeedOptions = {}) {
     }
   }, [state.topics, state.currentIndex, preloadCount, buildExpandUrl]);
 
-  // Explore a concept (selected text)
-  const exploreConcept = useCallback(async (concept: string) => {
-    const normalizedConcept = concept.toLowerCase().trim();
+  // Explore a concept (selected text) with optional question
+  const exploreConcept = useCallback(async (concept: string, question?: string) => {
+    const cacheKey = question 
+      ? `${concept.toLowerCase().trim()}::${question.toLowerCase().trim()}`
+      : concept.toLowerCase().trim();
     const currentTopic = state.topics[state.currentIndex];
     
-    // Check cache first
-    if (state.conceptCache[normalizedConcept]) {
+    // For questions, include the question in the displayed concept
+    const displayConcept = question ? `${concept}\n\n❓ ${question}` : concept;
+    
+    // Check cache first (only for non-questions or exact matches)
+    if (!question && state.conceptCache[cacheKey]) {
       setState((prev) => ({
         ...prev,
-        currentConcept: concept,
-        conceptContent: prev.conceptCache[normalizedConcept],
+        currentConcept: displayConcept,
+        conceptContent: prev.conceptCache[cacheKey],
         isExploringConcept: false,
       }));
       return;
@@ -449,7 +454,7 @@ export function useTopicFeed({ preloadCount = 2 }: UseTopicFeedOptions = {}) {
     
     setState((prev) => ({
       ...prev,
-      currentConcept: concept,
+      currentConcept: displayConcept,
       conceptContent: null,
       isExploringConcept: true,
     }));
@@ -460,6 +465,7 @@ export function useTopicFeed({ preloadCount = 2 }: UseTopicFeedOptions = {}) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           concept,
+          question, // Pass the question to the API
           topicId: currentTopic?.id,
           topicContext: currentTopic?.content,
         }),
@@ -475,7 +481,7 @@ export function useTopicFeed({ preloadCount = 2 }: UseTopicFeedOptions = {}) {
         isExploringConcept: false,
         conceptCache: {
           ...prev.conceptCache,
-          [normalizedConcept]: data.content,
+          [cacheKey]: data.content,
         },
       }));
     } catch (error) {
